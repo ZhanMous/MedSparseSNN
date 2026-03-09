@@ -116,23 +116,23 @@ $$ S[t] = H(V[t] - V_{th}) $$
 $$ V[t] = V[t] \cdot (1-S[t]) + V_{reset} \cdot S[t] $$
 
 其中：
-- $ I_{syn}[t] $：t时刻的突触电流
-- $ V[t] $：t时刻的膜电位
-- $ \alpha = \exp(-\Delta t/\tau) $：膜时间常数的衰减因子，**α 是可学习参数**，对应膜时间常数 τ
-- $ \Delta t $：离散时间步长
-- $ \tau $：膜时间常数（单位：ms）
-- $ S[t] $：t时刻的输出脉冲（0或1）
-- $ H(\cdot) $：Heaviside阶跃函数
-- $ V_{th} $：发放阈值
-- $ V_{reset} $：重置电位
+- $I_{syn}[t]$：t时刻的突触电流
+- $V[t]$：t时刻的膜电位
+- $\alpha = \exp(-\Delta t/\tau)$：膜时间常数的衰减因子，**α 是可学习参数**，对应膜时间常数 τ
+- $\Delta t$：离散时间步长
+- $\tau$：膜时间常数（单位：ms）
+- $S[t]$：t时刻的输出脉冲（0或1）
+- $H(\cdot)$：Heaviside阶跃函数
+- $V_{th}$：发放阈值
+- $V_{reset}$：重置电位
 
 在反向传播过程中，使用替代梯度函数ATan来近似不可导的阶跃函数：
 
 $$ \frac{\partial S[t]}{\partial V[t]} = \frac{\partial H(V[t] - V_{th})}{\partial V[t]} \approx \frac{\partial \text{ATan}(\beta(V[t] - V_{th}))}{\partial V[t]} $$
 
 其中：
-- $ \beta $：替代梯度函数的平滑参数（本实验中 $ \beta = 2.0 $）
-- $ \text{ATan}(x) = \frac{1}{2} + \frac{1}{\pi} \arctan(x) $：ATan替代梯度函数
+- $\beta$：替代梯度函数的平滑参数（本实验中 $\beta = 2.0$）
+- $\text{ATan}(x) = \frac{1}{2} + \frac{1}{\pi} \arctan(x)$：ATan替代梯度函数
 
 ### 3.3 训练流程
 

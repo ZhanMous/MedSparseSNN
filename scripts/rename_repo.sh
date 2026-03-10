@@ -7,6 +7,11 @@ CURRENT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 PARENT_DIR="$(dirname "$CURRENT_DIR")"
 CURRENT_BASENAME="$(basename "$CURRENT_DIR")"
 
+if [[ "$CURRENT_BASENAME" == "$TARGET_NAME" ]]; then
+  echo "当前目录已经是 $TARGET_NAME，无需重命名。"
+  exit 0
+fi
+
 if [[ "$CURRENT_BASENAME" != "$CURRENT_NAME" ]]; then
   echo "当前目录名为 $CURRENT_BASENAME，不是 $CURRENT_NAME；如需继续，请手动检查脚本。"
   exit 1

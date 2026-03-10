@@ -104,7 +104,7 @@ pytest
 
 ## 仓库重命名
 
-当前工作区目录名仍是 HemoSparse，这是为了避免在活跃编辑会话中直接移动根目录导致路径失效。若需要在文件系统层面完成最终重命名，可执行 [scripts/rename_repo.sh](scripts/rename_repo.sh)。
+当前工作区目录已完成重命名，当前仓库名为 MedSparseSNN。若你在其他机器上仍保留旧目录名 HemoSparse，可执行 [scripts/rename_repo.sh](scripts/rename_repo.sh) 完成文件系统层面的目录重命名。
 
 ## 已知限制
 

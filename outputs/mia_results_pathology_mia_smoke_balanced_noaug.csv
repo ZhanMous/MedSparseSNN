@@ -1,2 +1,0 @@
-dataset,model,epochs,repeats,shadow_models,encoding,augment,T,accuracy,auc,f1,precision,recall,significance_vs_ann
-pathmnist,ANN,1,1,1,direct,False,6,0.5550 ± 0.0000,0.5786 ± 0.0000,0.5654 ± 0.0000,0.5508 ± 0.0000,0.5808 ± 0.0000,

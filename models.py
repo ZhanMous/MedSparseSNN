@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-HemoSparse 模型定义
+MedSparseSNN 模型定义
 包含三个对等结构的模型：SNN、DenseSNN、ANN
 """
 

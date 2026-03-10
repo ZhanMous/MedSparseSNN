@@ -13,7 +13,7 @@ WORKDIR /workspace
 # 复制项目（在 build 时上下文应为仓库根目录）
 COPY . /workspace
 
-WORKDIR /workspace/HemoSparse
+WORKDIR /workspace/MedSparseSNN
 
 # 安装最小的 Python 工具（可选）
 RUN pip3 install --no-cache-dir python-pptx

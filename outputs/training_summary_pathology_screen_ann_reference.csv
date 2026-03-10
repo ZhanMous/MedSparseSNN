@@ -1,2 +1,0 @@
-dataset,model,encoding,augment,T,epochs,repeats,val_acc,test_acc,training_time,power,latency,params,output_prefix
-pathmnist,ANN,direct,True,6,8,1,93.28 ± 0.00,87.41 ± 0.00,100.48 ± 0.00s,15.83 ± 0.00W,0.04 ± 0.00ms/sample,119521 (0.120M),pathology_screen_ann_reference

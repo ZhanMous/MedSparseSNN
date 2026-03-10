@@ -11,7 +11,9 @@ import sys
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUTPUT_DIR = os.path.join(PROJECT_ROOT, 'outputs')
-DEFAULT_BLOOD_SUMMARY = os.path.join(OUTPUT_DIR, 'training_summary.csv')
+CSV_DIR = os.path.join(OUTPUT_DIR, 'csv')
+REPORT_DIR = os.path.join(PROJECT_ROOT, 'docs', 'reports')
+DEFAULT_BLOOD_SUMMARY = os.path.join(CSV_DIR, 'training_summary.csv')
 
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
@@ -97,7 +99,7 @@ def load_optional_rows(path):
 
 
 def default_report_name(dataset_flag):
-    return f'{dataset_flag.upper()}_EXPERIMENT_REPORT.md'
+    return os.path.join('docs', 'reports', f'{dataset_flag}_experiment_report.md')
 
 
 def final_prefix(dataset_flag):
@@ -126,11 +128,11 @@ def write_report(report_path, dataset_flag, screening_rows, final_rows, selected
         })
 
     lines = [
-        f'# HemoSparse {dataset_flag} 实验报告',
+        f'# MedSparseSNN {dataset_flag} 实验报告',
         '',
         '## 实验目标',
         '',
-        f'验证 BloodMNIST 上表现良好的 HemoSparse 配置迁移到 {dataset_flag} 时的性能退化来源，并给出可复现的实验配置。',
+        f'验证 BloodMNIST 上表现良好的 MedSparseSNN 配置迁移到 {dataset_flag} 时的性能退化来源，并给出可复现的实验配置。',
         '',
         '## 实验设计',
         '',
@@ -185,7 +187,8 @@ def main():
 
     dataset_flag = args.dataset.lower()
     report_name = args.report_name or default_report_name(dataset_flag)
-    report_path = os.path.join(PROJECT_ROOT, report_name)
+    report_path = report_name if os.path.isabs(report_name) else os.path.join(PROJECT_ROOT, report_name)
+    os.makedirs(os.path.dirname(report_path), exist_ok=True)
     final_output_prefix = final_prefix(dataset_flag)
 
     screening_summaries = []
@@ -203,7 +206,7 @@ def main():
             T_value=6,
             output_prefix=ann_prefix,
         )
-    screening_summaries.append(('ann_reference', read_csv_rows(os.path.join(OUTPUT_DIR, f'training_summary_{ann_prefix}.csv'))))
+    screening_summaries.append(('ann_reference', read_csv_rows(os.path.join(CSV_DIR, f'training_summary_{ann_prefix}.csv'))))
 
     for config in SCREENING_CONFIGS:
         prefix = screening_prefix(dataset_flag, config['name'])
@@ -220,7 +223,7 @@ def main():
                 T_value=config['timesteps'],
                 output_prefix=prefix,
             )
-        screening_summaries.append((config['name'], read_csv_rows(os.path.join(OUTPUT_DIR, f'training_summary_{prefix}.csv'))))
+        screening_summaries.append((config['name'], read_csv_rows(os.path.join(CSV_DIR, f'training_summary_{prefix}.csv'))))
 
     selected_config = select_best_snn_config(screening_summaries)
     if not args.skip_training:
@@ -238,10 +241,10 @@ def main():
         )
 
     screening_rows = build_screening_report_rows(screening_summaries)
-    final_rows = read_csv_rows(os.path.join(OUTPUT_DIR, f'training_summary_{final_output_prefix}.csv'))
+    final_rows = read_csv_rows(os.path.join(CSV_DIR, f'training_summary_{final_output_prefix}.csv'))
     blood_rows = load_blood_baseline()
-    privacy_rows = load_optional_rows(os.path.join(OUTPUT_DIR, f'mia_results_{final_output_prefix}.csv'))
-    efficiency_rows = load_optional_rows(os.path.join(OUTPUT_DIR, f'medmnist_privacy_efficiency_summary_{final_output_prefix}.csv'))
+    privacy_rows = load_optional_rows(os.path.join(CSV_DIR, f'mia_results_{final_output_prefix}.csv'))
+    efficiency_rows = load_optional_rows(os.path.join(CSV_DIR, f'medmnist_privacy_efficiency_summary_{final_output_prefix}.csv'))
     write_report(report_path, dataset_flag, screening_rows, final_rows, selected_config, blood_rows, privacy_rows, efficiency_rows, args)
     print(f'Wrote report to {report_path}')
 

@@ -87,7 +87,7 @@ def read_power_results():
 def create_privacy_comparison():
     mia = read_mia_results()
     # map labels to model keys used in CSVs
-    categories = ['Traditional AI', 'HemoSparse']
+    categories = ['Traditional AI', 'MedSparseSNN']
     ann_key = 'ANN'
     snn_key = 'SNN'
     ann_mia = mia.get(ann_key)
@@ -122,7 +122,7 @@ def create_privacy_comparison():
     ax.tick_params(axis='y', labelsize=20)
     
     fig.suptitle('Hacker Attack Success Rate Comparison', fontsize=36, fontweight='bold', y=0.98)
-    ax.set_title('HemoSparse completely blocks privacy theft', fontsize=24, pad=20)
+    ax.set_title('MedSparseSNN completely blocks privacy theft', fontsize=24, pad=20)
     
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
@@ -179,13 +179,13 @@ def create_computational_efficiency():
     if ann_energy is None or snn_energy is None:
         print('警告: power_results.csv 中缺少 ANN 或 SNN 的能量数据，跳过计算量对比图')
         return
-    # compute relative efficiency: ANN -> 100, HemoSparse -> (SNN_energy/ANN_energy)*100
+    # compute relative efficiency: ANN -> 100, MedSparseSNN -> (SNN_energy/ANN_energy)*100
     try:
         ratio = float(snn_energy) / float(ann_energy) * 100.0
     except Exception:
         print('警告: 无法计算能量比，跳过计算量对比图')
         return
-    categories = ['Traditional AI', 'HemoSparse']
+    categories = ['Traditional AI', 'MedSparseSNN']
     efficiencies = [100.0, ratio]
     colors = ['#868e96', '#51cf66']
     
@@ -210,7 +210,7 @@ def create_computational_efficiency():
     ax.tick_params(axis='x', labelsize=20)
     
     fig.suptitle('AI Computational Cost Comparison', fontsize=36, fontweight='bold', y=0.98)
-    ax.set_title('HemoSparse uses only 0.3% computation, saves 99.7%', fontsize=24, pad=20)
+    ax.set_title('MedSparseSNN uses only 0.3% computation, saves 99.7%', fontsize=24, pad=20)
     
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
@@ -231,7 +231,7 @@ def create_summary_infographic():
         ax.set_ylim(0, 1)
         ax.axis('off')
     
-    fig.suptitle('HemoSparse Core Advantages', fontsize=44, fontweight='bold', y=0.97)
+    fig.suptitle('MedSparseSNN Core Advantages', fontsize=44, fontweight='bold', y=0.97)
     
     privacy_bg = '#d3f9d8'
     rect1 = plt.Rectangle((0.05, 0.05), 0.9, 0.9, facecolor=privacy_bg, alpha=0.6)
@@ -263,7 +263,7 @@ def create_summary_infographic():
     print('✅ 核心优势总结.png generated successfully!')
 
 def main():
-    print('🚀 Generating HemoSparse public-facing visualization charts...\n')
+    print('🚀 Generating MedSparseSNN public-facing visualization charts...\n')
     
     create_privacy_comparison()
     create_accuracy_comparison()

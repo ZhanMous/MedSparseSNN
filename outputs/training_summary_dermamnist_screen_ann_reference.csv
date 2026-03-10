@@ -1,2 +1,0 @@
-dataset,model,encoding,augment,T,epochs,repeats,val_acc,test_acc,training_time,power,latency,params,output_prefix
-dermamnist,ANN,direct,True,6,8,1,78.36 ± 0.00,75.81 ± 0.00,12.65 ± 0.00s,16.03 ± 0.00W,0.04 ± 0.00ms/sample,119357 (0.119M),dermamnist_screen_ann_reference

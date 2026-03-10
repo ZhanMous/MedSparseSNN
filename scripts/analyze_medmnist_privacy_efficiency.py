@@ -14,6 +14,8 @@ import torch
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUTPUT_DIR = os.path.join(PROJECT_ROOT, 'outputs')
+CSV_DIR = os.path.join(OUTPUT_DIR, 'csv')
+CHECKPOINT_DIR = os.path.join(OUTPUT_DIR, 'checkpoints')
 
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
@@ -81,7 +83,7 @@ def format_metric(values, precision=4, unit=''):
 
 
 def main(args):
-    detailed_training_path = os.path.join(OUTPUT_DIR, f'training_runs_{args.training_prefix}.csv')
+    detailed_training_path = os.path.join(CSV_DIR, f'training_runs_{args.training_prefix}.csv')
     if not os.path.exists(detailed_training_path):
         raise FileNotFoundError(f'Missing training runs file: {detailed_training_path}')
 
@@ -93,7 +95,7 @@ def main(args):
     evaluation_rows = []
     for row in training_rows:
         model_name = row['model']
-        checkpoint_path = os.path.join(OUTPUT_DIR, f"{args.training_prefix}_{model_name}_T{row['T']}_seed{row['seed']}.pth")
+        checkpoint_path = os.path.join(CHECKPOINT_DIR, f"{args.training_prefix}_{model_name}_T{row['T']}_seed{row['seed']}.pth")
 
         spike_rate = None
         theoretical_macs_saving = 0.0
@@ -133,13 +135,13 @@ def main(args):
             'ann_reference_flops': ann_flops,
         })
 
-    detailed_out = os.path.join(OUTPUT_DIR, f'medmnist_privacy_efficiency_runs_{args.training_prefix}.csv')
+    detailed_out = os.path.join(CSV_DIR, f'medmnist_privacy_efficiency_runs_{args.training_prefix}.csv')
     with open(detailed_out, 'w', newline='') as handle:
         writer = csv.DictWriter(handle, fieldnames=['dataset', 'model', 'seed', 'encoding', 'augment', 'T', 'test_acc', 'power_w', 'latency_ms_per_sample', 'energy_mj_per_sample', 'spike_rate', 'theoretical_macs_saving', 'ann_reference_macs', 'ann_reference_flops'])
         writer.writeheader()
         writer.writerows(evaluation_rows)
 
-    summary_out = os.path.join(OUTPUT_DIR, f'medmnist_privacy_efficiency_summary_{args.training_prefix}.csv')
+    summary_out = os.path.join(CSV_DIR, f'medmnist_privacy_efficiency_summary_{args.training_prefix}.csv')
     with open(summary_out, 'w', newline='') as handle:
         writer = csv.writer(handle)
         writer.writerow(['dataset', 'model', 'repeats', 'test_acc', 'power_w', 'latency_ms_per_sample', 'energy_mj_per_sample', 'spike_rate', 'theoretical_macs_saving'])

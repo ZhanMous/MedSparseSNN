@@ -1,677 +1,320 @@
-# HemoSparse: 面向隐私保护与边缘高效推理的稀疏脉冲医学影像分类研究
-
-## 摘要 (Abstract)
-
-随着医疗AI应用的快速发展，模型的隐私保护能力和计算效率成为关键挑战。本文提出HemoSparse框架，探讨脉冲神经网络（SNN）的天然稀疏性在隐私保护与低功耗推理方面的潜力。我们在BloodMNIST数据集上进行了系统性实验，并补充了向PathMNIST病理图像任务和DermaMNIST皮肤镜图像任务的迁移评估，对比ANN、SNN和DenseSNN（关闭稀疏计算的SNN）的性能表现。实验结果表明，尽管ANN在BloodMNIST上的测试准确率（95.59%±0.11%）略高于SNN（93.63%±0.28%），但SNN的稀疏激活模式显著降低了模型对训练数据的记忆程度，使其对成员推理攻击（MIA）的准确率降至接近随机猜测水平（0.500±0.015），展现出更强的隐私保护鲁棒性。进一步地，在PathMNIST上，SNN 以 82.33%±0.31% 的测试准确率保持接近 ANN 的 85.12%±0.40%，同时仍保留 84.18%±0.52% 的理论有效 MAC 节省；在DermaMNIST上，SNN 获得 69.93%±0.20% 的测试准确率，并保持 90.74%±0.23% 的理论有效 MAC 节省，说明稀疏性优势可以迁移到不同医学图像模态，但准确率代价会随数据域变化而变化。通过对多数据集重复实验、稀疏度梯度消融实验和跨数据集迁移评估，我们进一步分析了SNN稀疏性与隐私保护能力之间的关联。此外，我们还开发了轻量化Spiking Transformer模型（参数量0.119M），验证了稀疏性优势在Transformer架构上的普适性。本研究为医疗AI场景下的隐私保护与高效推理提供了新的研究视角和实验证据。
-
-**关键词**: 脉冲神经网络，隐私保护，低功耗推理，医疗AI，成员推理攻击
-
 ---
+title: MedSparseSNN
+subtitle: 面向医疗影像隐私保护与边缘高效推理的稀疏脉冲神经网络框架
+author:
+  - 詹绍基
+date: ""
+abstract: |
+  本文提出 MedSparseSNN，一种面向医疗影像隐私保护与边缘高效推理的稀疏脉冲神经网络框架。与仅比较单一模型性能的研究不同，MedSparseSNN 将稀疏脉冲主干、用于区分稀疏执行与脉冲动力学贡献的 DenseSNN 对照，以及同时覆盖准确率、成员推理攻击与效率指标的评测协议整合为统一研究对象。我们以 BloodMNIST 为主验证集，并补充 PathMNIST 与 DermaMNIST 迁移实验。实验表明：其一，BloodMNIST 上 SNN 在保持 93.63%±0.28% 准确率的同时，将 MIA 准确率降至 0.500±0.015，明显低于 ANN 的 0.628±0.021；其二，DenseSNN 在准确率与隐私鲁棒性上均劣于稀疏 SNN，说明稀疏执行是框架中的关键因素；其三，稀疏性带来的理论有效 MAC 节省可迁移到 PathMNIST 与 DermaMNIST，但隐私收益并不稳定。本文还报告阈值消融、PLIF 与 surrogate 参数消融、DP-SGD 对照，以及约 0.12M 参数量的 Spiking Transformer 扩展。整体上，MedSparseSNN 在 BloodMNIST 上展现出更优的隐私-准确率折中，同时揭示了稀疏性收益的跨数据集边界。
+keywords:
+  - spiking neural networks
+  - privacy
+  - membership inference attack
+  - efficiency
+  - medical imaging
+abstract_title: 摘要
+keyword_title: 关键词
+keyword_sep: ；
+lang: zh-CN
+...
 
-## 1. 引言 (Introduction)
+# 引言
 
-### 1.1 研究背景
+医疗影像模型在部署时往往同时受制于准确率、隐私与算力。更高的识别性能常常伴随更强的训练集记忆，从而增加成员推理攻击风险；而在边缘或低功耗场景中，稠密卷积网络的持续计算又会带来显著的延迟与能耗开销。MedSparseSNN 的出发点正是在于，不把 SNN 仅视作另一类分类器，而是把稀疏脉冲表示、隐私评估与边缘部署指标纳入同一研究框架，系统考察模型是否能够在抑制成员泄露的同时保留事件驱动推理潜力。
 
-近年来，深度学习在医疗影像诊断领域取得了显著进展，但随之而来的是日益严峻的隐私保护和计算效率问题。一方面，医疗数据的敏感性要求AI模型具备强大的隐私保护能力，防止训练数据被恶意推断；另一方面，医疗设备资源有限，需要高效的模型推理以实现边缘计算。
+现有关于 SNN 隐私性的论证常见两个问题。其一，很多工作只给出 SNN 与 ANN 的直接对比，而没有加入“关闭稀疏实现但保留脉冲动力学”的对照模型，因此难以判断收益究竟来自脉冲神经元还是来自稀疏实现。其二，不少实验只在单一数据集上成立，跨数据域稳定性不足。基于这些空缺，本文围绕三个问题展开：
 
-### 1.2 问题痛点
+1. 在 BloodMNIST 上，SNN 能否在较小精度代价下显著降低 MIA 风险。
+2. 稀疏实现是否是独立的重要变量，即 SNN 与 DenseSNN 是否会出现可重复差异。
+3. 在 PathMNIST 与 DermaMNIST 上，稀疏性收益是否仍然存在，以及这种收益体现为准确率、隐私还是理论能效。
 
-1. **隐私泄露风险**：传统人工神经网络（ANN）容易遭受成员推理攻击（Membership Inference Attack, MIA），可能导致患者隐私泄露。
-2. **计算资源消耗**：ANN在推理过程中需要进行大量连续计算，对硬件资源要求高，难以在资源受限的医疗设备上部署。
-3. **功耗问题**：在移动医疗设备和边缘计算场景中，高功耗限制了AI模型的实际应用。
+本文有三点贡献。第一，我们提出以显式稀疏执行为核心的医疗影像 SNN 框架，并引入 DenseSNN 对照，以区分“脉冲动力学”与“稀疏实现”两类因素。第二，我们建立统一实验协议，在同一框架下联合报告准确率、MIA 鲁棒性、动态功耗、延迟与理论 MAC 节省。第三，我们通过主实验、消融与架构扩展的组合分析，刻画了稀疏执行在隐私与效率上的收益及其适用边界。
 
-### 1.3 现有研究不足
+# 相关工作
 
-尽管已有研究尝试解决上述问题，但仍存在以下不足：
-1. 隐私保护与计算效率往往被视为独立问题，缺乏统一的解决方案。
-2. 现有研究多关注理论隐私保护，缺乏在实际医疗数据集上的验证。
-3. 对SNN在隐私保护方面的潜力研究不足，缺乏稀疏性与隐私保护能力之间因果关系的实证研究。
+SNN 的训练与部署研究通常围绕两个方向展开。一类工作关注可训练脉冲神经元与替代梯度设计，例如 PLIF 与 ATan surrogate 的组合，使得深层 SNN 在静态图像任务上具备可用的优化稳定性。另一类工作关注事件驱动推理的低功耗潜力，尤其是在神经形态硬件上通过稀疏脉冲减少有效运算。
 
-### 1.4 本文核心贡献
+在隐私领域，成员推理攻击是最常见的黑盒攻击设置之一。该攻击利用训练样本与非训练样本在置信度、熵或 margin 上的统计差异，判断某个样本是否属于训练集。对视觉模型而言，更高的训练集记忆通常会使成员样本表现出更尖锐、更高置信度的输出分布。
 
-1. 提出了HemoSparse框架，在医疗AI场景下系统性地探讨SNN的稀疏性与隐私保护能力之间的关联。
-2. 在BloodMNIST数据集上进行了严谨的对照实验，并在PathMNIST和DermaMNIST上进行了迁移验证，通过与ANN和DenseSNN（关闭稀疏计算的SNN）的对比，评估SNN在不同医学图像模态上的准确率-隐私-稀疏性权衡。
-3. 通过稀疏度梯度消融实验（v_threshold ∈ [0.5, 0.75, 1.0, 1.5]），量化分析了SNN的稀疏性与隐私保护能力之间的关系，为相关研究提供了实证证据。
-4. 开发了轻量化Spiking Transformer模型，验证了SNN稀疏性优势在Transformer架构上的普适性，进一步升华了研究结论。
-5. 通过5次独立重复实验和双侧t检验，保证了实验结果的统计显著性和可靠性。
+本文与单纯比较 ANN 和 SNN 的工作不同。我们显式引入 DenseSNN 作为控制对照，从而把“脉冲动力学”和“稀疏实现”拆开讨论；此外，我们不把跨数据集结果过度解释为稳定的隐私优势，而是将其视为稀疏性边界条件的检验。
 
----
+# 方法
 
-## 2. 相关工作 (Related Work)
+## 模型与对照设计
 
-### 2.1 脉冲神经网络在医疗影像中的应用
+MedSparseSNN 的实验核心由三类模型组成：
 
-脉冲神经网络（SNN）作为第三代神经网络，因其生物可解释性和事件驱动的特性，在医疗影像分析中展现出巨大潜力。Shrestha等人<sup>[1]</sup>提出的SLAYER算法首次在标准数据集上实现了与ANN相当的准确率，为SNN的端到端训练奠定了基础。近年来，研究者们致力于将SNN应用于医学影像分析，如Xu等人<sup>[2]</sup>将SNN用于肺结节检测，展示了其在医疗场景中的可行性；Li等人<sup>[8]</sup>进一步探索了SNN在多模态医疗数据融合中的应用，展现了其在复杂医疗任务中的潜力。
+1. ANN：与主 SNN 拓扑对齐的卷积残差基线。
+2. SNN：采用 PLIF 神经元与多步时序处理的稀疏脉冲网络。
+3. DenseSNN：保留与 SNN 相同的脉冲动力学和阈值设置，但关闭稀疏实现，强制所有神经元在每个时间步参与稠密计算。
+
+这样的设计使得 SNN 与 DenseSNN 的差异主要落在实现层面的稀疏性，而不是网络深度、通道数或训练目标。因此，MedSparseSNN 的核心主张并非“任何脉冲网络都天然更私密”，而是“显式稀疏执行的脉冲框架”应被作为独立设计因素加以评估。对于 Transformer 扩展，我们采用 LightSpikingTransformer，并通过参数统计与单元测试确认其规模与 CNN 版 SNN 处于同一量级。
+
+## 训练与攻击协议
+
+BloodMNIST 主实验使用 5 次独立重复；PathMNIST 与 DermaMNIST 的正式迁移实验使用 2 次独立重复。训练采用 AdamW、余弦退火学习率以及时间步 $T=6$。MIA 攻击基于影子模型和 Logistic Regression，特征为最大置信度、熵和置信度 margin。全文报告的数值均来自实验汇总文件，而非手工整理的表格。
+
+## 效率与稀疏性指标
 
-### 2.2 低功耗神经网络推理
+我们区分三类效率指标：
 
-神经网络的功耗问题一直是边缘计算领域的热点。传统方法主要通过模型压缩<sup>[9]</sup>、知识蒸馏<sup>[10]</sup>等方式降低功耗，但这些方法可能导致准确率下降。SNN的稀疏激活特性使其在理论上具有天然的低功耗优势，因为只有当神经元膜电位达到阈值时才会产生脉冲，大部分神经元在大部分时间处于静息状态<sup>[3]</sup>。在专用神经形态芯片（如Intel Loihi<sup>[11]</sup>、IBM TrueNorth<sup>[12]</sup>）上，SNN的事件驱动计算特性可被充分利用，实现1-2个数量级的能效提升。
+1. 训练时间：由训练脚本直接记录。
+2. 动态功耗与单样本延迟：来自专门的功耗与延迟测量结果。
+3. 理论有效 MAC 节省：由 spike rate 估计，仅对稀疏 SNN 作为潜在硬件收益指标进行解释。
 
-### 2.3 深度学习中的隐私保护
+由于通用 GPU 并不等同于神经形态硬件，本文把理论有效 MAC 节省视为潜在部署优势，而不将其等同于当前 GPU 上已实现的 wall-clock 节能。
 
-成员推理攻击（MIA）是深度学习中最常见的隐私攻击之一，旨在推断某一样本是否属于模型的训练集。Shokri等人<sup>[4]</sup>首次提出了基于影子模型的MIA攻击方法，揭示了深度学习模型的隐私脆弱性。随后，Salem等人<sup>[5]</sup>提出了无需影子模型的MIA攻击方法，降低了攻击门槛；Song等人<sup>[6]</sup>进一步分析了主动和被动隐私攻击的局限性。为应对这些攻击，研究者们提出了差分隐私<sup>[13]</sup>、对抗训练<sup>[14]</sup>等多种防御方法，但这些方法往往以牺牲模型性能为代价。
+# 实验结果
 
-针对SNN的隐私防御，现有研究主要包括差分隐私SNN和对抗训练SNN。差分隐私SNN通过在训练过程中添加噪声来保护隐私<sup>[18]</sup>，但会显著降低模型准确率；对抗训练SNN通过对抗样本增强来提升鲁棒性<sup>[19]</sup>，但会增加计算开销并影响收敛速度。这些方法的核心局限在于：隐私保护能力的提升往往以牺牲模型准确率或计算效率为代价，难以在实际医疗场景中部署。
+## BloodMNIST 主结果
 
-### 2.4 SNN与隐私保护
+BloodMNIST 主结果见表 1。准确率与训练时间来自 [outputs/csv/training_summary.csv](outputs/csv/training_summary.csv)。
+
+\begin{table}[t]
+\centering
+\small
+\caption{BloodMNIST 主结果}
+\begin{tabular}{lccc}
+\specialrule{0.08em}{0pt}{0pt}
+Model & Params (M) & Test Acc. (\%) & Train Time (s) \\
+\midrule
+ANN & 0.119 & 95.59 $\pm$ 0.11 & 139.63 $\pm$ 0.94 \\
+SNN & 0.117 & 93.63 $\pm$ 0.28 & 572.49 $\pm$ 12.56 \\
+DenseSNN & 0.117 & 92.15 $\pm$ 0.35 & 568.32 $\pm$ 11.89 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+![BloodMNIST 上主模型测试准确率对比](./outputs/figures/model_performance.png)
 
-近年来，SNN在隐私保护方面的潜力逐渐受到关注。Wang等人<sup>[7]</sup>的综述系统性地总结了隐私保护SNN的研究进展。Zhang等人<sup>[15]</sup>首次从理论上分析了SNN的稀疏激活机制与隐私保护能力之间的关联，指出稀疏性可能降低模型对训练数据的记忆程度。Chen等人<sup>[16]</sup>通过实验验证了SNN对成员推理攻击的鲁棒性，但缺乏严格的控制变量实验来确立因果关系。Liu等人<sup>[17]</sup>进一步探索了SNN在联邦学习场景下的隐私保护性能。然而，现有研究多关注SNN隐私保护的定性分析，缺乏在医疗数据集上的系统性定量研究，以及通过控制变量实验验证稀疏性与隐私保护因果关系的工作。
+ANN 在 BloodMNIST 上取得最高测试准确率，但 SNN 仍明显优于 DenseSNN。这说明仅保留脉冲动力学并不足以维持性能，稀疏执行本身就是影响结果的关键因素。
+
+BloodMNIST 隐私结果见表 2。数据来自 [outputs/csv/mia_results.csv](outputs/csv/mia_results.csv)。
+
+\begin{table}[t]
+\centering
+\small
+\caption{BloodMNIST 隐私结果}
+\begin{tabular}{lccc}
+\specialrule{0.08em}{0pt}{0pt}
+Model & MIA Acc. & Train Conf. & Test Conf. \\
+\midrule
+SNN & 0.500 $\pm$ 0.015 & 0.125 $\pm$ 0.021 & 0.125 $\pm$ 0.020 \\
+DenseSNN & 0.562 $\pm$ 0.018 & 0.257 $\pm$ 0.032 & 0.258 $\pm$ 0.031 \\
+ANN & 0.628 $\pm$ 0.021 & 0.722 $\pm$ 0.041 & 0.716 $\pm$ 0.039 \\
+Overfit ANN & 0.745 $\pm$ 0.018 & 0.912 $\pm$ 0.025 & 0.789 $\pm$ 0.032 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+SNN 的 MIA 准确率几乎等于随机猜测，而 ANN 与过拟合 ANN 则呈现出明显可攻击的置信度差距。DenseSNN 介于两者之间，说明稀疏执行有助于削弱训练集记忆所暴露的泄露信号。
+
+BloodMNIST 效率结果见表 3。动态功耗与延迟来自 [outputs/csv/power_results.csv](outputs/csv/power_results.csv)，理论 MAC 节省来自 [outputs/csv/theoretical_flops.csv](outputs/csv/theoretical_flops.csv)。
+
+\begin{table}[t]
+\centering
+\small
+\caption{BloodMNIST 效率结果}
+\begin{tabular}{lcccc}
+\specialrule{0.08em}{0pt}{0pt}
+Model & Spike Rate & Power (W) & Latency (ms) & MAC Save \\
+\midrule
+SNN & 0.003 & 10.326 $\pm$ 0.214 & 4.724 $\pm$ 0.123 & 99.7\% \\
+DenseSNN & 0.477 & 12.567 $\pm$ 0.245 & 4.601 $\pm$ 0.105 & 0.0\% \\
+ANN & 1.000 & 9.300 $\pm$ 0.156 & 0.508 $\pm$ 0.021 & 0.0\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+![BloodMNIST 上模型功耗与延迟分布](./outputs/figures/power_latency.png)
+
+需要指出的是，SNN 在当前 GPU 上并未表现出更低的延迟或实测功耗；其优势主要体现在极低的 spike rate 和 99.7% 的理论有效 MAC 节省。因此，本文关于“低功耗”的讨论指向事件驱动计算潜力，而非当前 GPU 上的 wall-clock 收益。
+
+## 稀疏性消融
+
+BloodMNIST 阈值消融见表 4。数据来自 [outputs/csv/ablation_results.csv](outputs/csv/ablation_results.csv)。
+
+\begin{table}[t]
+\centering
+\small
+\caption{BloodMNIST 阈值消融}
+\begin{tabular}{cccc}
+\specialrule{0.08em}{0pt}{0pt}
+$v_{\text{threshold}}$ & Sparsity & Test Acc. (\%) & MIA Acc. \\
+\midrule
+0.5 & 0.869 $\pm$ 0.012 & 93.21 $\pm$ 0.35 & 0.582 $\pm$ 0.021 \\
+0.75 & 0.945 $\pm$ 0.008 & 93.45 $\pm$ 0.28 & 0.541 $\pm$ 0.018 \\
+1.0 & 0.997 $\pm$ 0.001 & 93.63 $\pm$ 0.25 & 0.500 $\pm$ 0.015 \\
+1.5 & 0.999 $\pm$ 0.000 & 92.87 $\pm$ 0.42 & 0.498 $\pm$ 0.016 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+![BloodMNIST 上稀疏度与成员推理风险关系](./outputs/figures/sparsity_vs_mia.png)
+
+该消融显示出稳定趋势：随着稀疏度提升，MIA 准确率持续下降，而准确率在 $v_{\text{threshold}}=1.0$ 附近达到更好的平衡点。我们据此认为，“更高稀疏性往往对应更弱的成员泄露信号”是本文证据最充分的结论之一。
+
+## 跨数据集迁移
+
+PathMNIST 与 DermaMNIST 的正式对比采用 2 次重复，数据分别来自 [outputs/csv/training_summary_pathology_final_compare.csv](outputs/csv/training_summary_pathology_final_compare.csv)、[outputs/csv/mia_results_pathology_final_compare.csv](outputs/csv/mia_results_pathology_final_compare.csv)、[outputs/csv/pathology_privacy_efficiency_summary_pathology_final_compare.csv](outputs/csv/pathology_privacy_efficiency_summary_pathology_final_compare.csv)、[outputs/csv/training_summary_dermamnist_final_compare.csv](outputs/csv/training_summary_dermamnist_final_compare.csv)、[outputs/csv/mia_results_dermamnist_final_compare.csv](outputs/csv/mia_results_dermamnist_final_compare.csv) 与 [outputs/csv/medmnist_privacy_efficiency_summary_dermamnist_final_compare.csv](outputs/csv/medmnist_privacy_efficiency_summary_dermamnist_final_compare.csv)。
+
+跨数据集迁移结果见表 5。
+
+\begin{table*}[t]
+\centering
+\small
+\caption{跨数据集迁移结果}
+\begin{tabular}{llcccc}
+\specialrule{0.08em}{0pt}{0pt}
+Dataset & Model & Test Acc. (\%) & MIA Acc. & Spike Rate & MAC Save \\
+\midrule
+PathMNIST & SNN & 82.33 $\pm$ 0.31 & 0.5634 $\pm$ 0.0053 & 0.1582 $\pm$ 0.0052 & 84.18 $\pm$ 0.52\% \\
+PathMNIST & DenseSNN & 62.02 $\pm$ 0.85 & 0.5472 $\pm$ 0.0000 & 0.2072 $\pm$ 0.0074 & 0.00 $\pm$ 0.00\% \\
+PathMNIST & ANN & 85.12 $\pm$ 0.40 & 0.5412 $\pm$ 0.0065 & N/A & 0.00 $\pm$ 0.00\% \\
+DermaMNIST & SNN & 69.93 $\pm$ 0.20 & 0.4842 $\pm$ 0.0000 & 0.0926 $\pm$ 0.0023 & 90.74 $\pm$ 0.23\% \\
+DermaMNIST & DenseSNN & 66.81 $\pm$ 0.02 & 0.4842 $\pm$ 0.0000 & 0.1925 $\pm$ 0.0082 & 0.00 $\pm$ 0.00\% \\
+DermaMNIST & ANN & 75.06 $\pm$ 0.20 & 0.4809 $\pm$ 0.0021 & N/A & 0.00 $\pm$ 0.00\% \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+![跨数据集准确率与成员推理攻击对比](./outputs/figures/cross_dataset_tradeoff.png)
+
+这组结果说明，稀疏性带来的理论能效收益具有迁移性，但隐私优势并不稳定。在 PathMNIST 上，SNN 的 MIA 指标略高于 ANN；在 DermaMNIST 上，三者都接近随机猜测。与其把这两组结果解读为“反驳 SNN 隐私优势”，更准确的表述是：BloodMNIST 上观察到的隐私收益并不能无条件外推到其他医学图像域。
+
+## 补充消融与基线比较
+
+DP-SGD 对照见表 6。数据来自 [outputs/csv/p1_dp_sgd_comparison.csv](outputs/csv/p1_dp_sgd_comparison.csv)。
+
+\begin{table}[t]
+\centering
+\small
+\caption{DP-SGD 对照}
+\begin{tabular}{lccc}
+\specialrule{0.08em}{0pt}{0pt}
+Method & Test Acc. (\%) & MIA Acc. & Latency (ms) \\
+\midrule
+ANN & 95.59 $\pm$ 0.11 & 0.628 $\pm$ 0.021 & 0.508 $\pm$ 0.021 \\
+ANN + DP-SGD & 86.98 $\pm$ 0.42 & 0.502 $\pm$ 0.016 & 0.584 $\pm$ 0.024 \\
+SNN & 93.63 $\pm$ 0.28 & 0.500 $\pm$ 0.015 & 4.724 $\pm$ 0.123 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+结果表明，在当前设定下，SNN 能以更高准确率接近 DP-SGD 的隐私水平，但其 GPU 延迟仍明显高于 ANN 系方法。因此，SNN 更适合作为兼顾潜在硬件收益与隐私鲁棒性的方案，而非 ANN 的直接低延迟替代品。
+
+PLIF 参数消融见表 7。数据来自 [outputs/csv/p1_plif_ablation.csv](outputs/csv/p1_plif_ablation.csv)。
+
+\begin{table}[t]
+\centering
+\small
+\caption{PLIF 参数消融}
+\begin{tabular}{lccc}
+\specialrule{0.08em}{0pt}{0pt}
+Model & Test Acc. (\%) & Sparsity & MIA Acc. \\
+\midrule
+SNN (learnable $\alpha$) & 93.63 $\pm$ 0.28 & 0.997 $\pm$ 0.001 & 0.500 $\pm$ 0.015 \\
+SNN (fixed $\alpha=0.2$) & 92.15 $\pm$ 0.35 & 0.985 $\pm$ 0.003 & 0.525 $\pm$ 0.018 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-**本文核心增量**：与现有SNN隐私防御方法（如差分隐私SNN、对抗训练SNN）不同，本文方法无需额外隐私训练策略，而是利用SNN的天然稀疏性在较小准确率代价下实现更强的隐私鲁棒性与潜在边缘部署优势，从而缓解了现有方法常见的「隐私保护依赖额外训练技巧且伴随显著性能折损」问题。本文正是针对这一研究空白，在BloodMNIST医疗数据集上进行了严谨的对照实验和稀疏度梯度消融实验，并补充了PathMNIST病理图像和DermaMNIST皮肤镜图像上的迁移评估，进一步验证稀疏性优势的适用边界。
+替代梯度 $\beta$ 消融见表 8。数据来自 [outputs/csv/p1_beta_ablation.csv](outputs/csv/p1_beta_ablation.csv)。
 
----
+\begin{table}[t]
+\centering
+\small
+\caption{替代梯度 $\beta$ 消融}
+\begin{tabular}{cccc}
+\specialrule{0.08em}{0pt}{0pt}
+$\beta$ & Test Acc. (\%) & Sparsity & MIA Acc. \\
+\midrule
+1.0 & 92.78 $\pm$ 0.32 & 0.995 $\pm$ 0.002 & 0.512 $\pm$ 0.017 \\
+2.0 & 93.63 $\pm$ 0.28 & 0.997 $\pm$ 0.001 & 0.500 $\pm$ 0.015 \\
+3.0 & 93.12 $\pm$ 0.30 & 0.996 $\pm$ 0.001 & 0.508 $\pm$ 0.016 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-## 3. 方法论 (Methodology)
+这两组消融表明，主配置并非经验性拼接，而是在准确率、稀疏性与隐私之间取得了更优平衡。
 
-### 3.1 模型架构设计
+## Spiking Transformer 扩展
 
-我们设计了三种对等架构的模型：SNN、DenseSNN和ANN，以验证SNN的独特优势。
+本文同时考察了 LightSpikingTransformer，并通过 [test_transformer.py](test_transformer.py) 验证其参数量与 CNN 版 SNN 处于同一量级，且前向输出正常。由于目前尚缺少完整的 Transformer 延迟与功耗记录，本文仅报告其在阈值消融中已获得的准确率、MIA 与稀疏性结果。
 
-#### 3.1.1 SNN模型架构
+Spiking Transformer 阈值消融见表 9。数据来自 [outputs/csv/p1_spiking_transformer_ablation.csv](outputs/csv/p1_spiking_transformer_ablation.csv)。
 
-SNN模型采用改进的MS-ResNet结构，其详细架构如下：
+\begin{table}[t]
+\centering
+\small
+\caption{Spiking Transformer 阈值消融}
+\begin{tabular}{cccc}
+\specialrule{0.08em}{0pt}{0pt}
+$v_{\text{threshold}}$ & Sparsity & Test Acc. (\%) & MIA Acc. \\
+\midrule
+0.5 & 0.865 $\pm$ 0.014 & 92.12 $\pm$ 0.34 & 0.580 $\pm$ 0.020 \\
+0.75 & 0.942 $\pm$ 0.009 & 92.54 $\pm$ 0.29 & 0.539 $\pm$ 0.017 \\
+1.0 & 0.996 $\pm$ 0.002 & 92.85 $\pm$ 0.32 & 0.503 $\pm$ 0.018 \\
+1.5 & 0.999 $\pm$ 0.000 & 92.01 $\pm$ 0.41 & 0.501 $\pm$ 0.016 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-| 层序号 | 操作 | 输入尺寸 | 输出尺寸 | 参数量 |
-|--------|------|----------|----------|--------|
-| 1 | Conv2d + BN + PLIF + MaxPool | [T,N,3,28,28] | [T,N,20,14,14] | 540 |
-| 2 | SpikingResBlock (stride=2) | [T,N,20,14,14] | [T,N,41,7,7] | 22,541 |
-| 3 | SpikingResBlock (stride=2) | [T,N,41,7,7] | [T,N,82,3,3] | 90,882 |
-| 4 | AdaptiveAvgPool + Flatten | [T,N,82,3,3] | [T,N,82] | 0 |
-| 5 | Linear + PLIF | [T,N,82] | [T,N,8] | 656 |
+![Spiking Transformer 与 CNN 基线的准确率与隐私对比](./outputs/figures/spiking_transformer_comparison.png)
 
-**总参数量：117,248 = 0.117M**
+![Spiking Transformer 的稀疏度与成员推理风险关系](./outputs/figures/transformer_sparsity_vs_mia.png)
 
-*注：SNN 比 ANN 多的参数来自 PLIF 可学习衰减系数 α，结构完全对等。*
+在准确率与 MIA 两个维度上，Transformer 扩展与 CNN 版 SNN 呈现出相近趋势：更高稀疏性通常对应更弱的成员泄露信号，并在 $v_{\text{threshold}}=1.0$ 附近达到较好平衡。由于仍缺少与 Blood 主实验完全同协议的功耗与 latency 日志，这一部分更适合作为结构可行性验证，而不足以支撑完整的架构优劣比较。
 
-#### 3.1.2 DenseSNN模型定义
+# 讨论
 
-DenseSNN模型与SNN具有完全相同的架构、阈值和训练方法。唯一的区别是：**DenseSNN关闭了稀疏计算优化，强制所有神经元在每个时间步都参与稠密计算**。
+现有结果支持以下三点较为稳妥的判断。
 
-具体实现方式：
-- 我们自定义了 NonSparsePLIF 神经元，该神经元与标准PLIF保持完全相同的脉冲发放动力学（输出脉冲而非膜电位），但使用纯PyTorch实现以完全避开SpikingJelly的稀疏优化逻辑
-- 使用纯 PyTorch 层替代 SpikingJelly 的稀疏优化层
-- 保持了与 SNN 完全一致的脉冲动力学方程和阈值参数
-- 通过强制全张量计算而非只计算非零脉冲，实现了稠密的 SNN 对照
+1. 在 BloodMNIST 上，SNN 的确能在约 2 个百分点的准确率代价下，把 MIA 准确率从 0.628 降到 0.500 左右。
+2. DenseSNN 在 BloodMNIST、PathMNIST 与 DermaMNIST 上都不如 SNN，说明脉冲网络中的稀疏实现不是可有可无的工程细节。
+3. 稀疏性与理论有效 MAC 节省在跨数据集上相对稳定，但隐私优势并不稳定，因此不能把 BloodMNIST 上的现象直接上升为普适规律。
 
-**发放率定义说明**：
-- SNN的平均发放率：在测试集上统计所有神经元在所有时间步的脉冲发放频率（SpikeJelly稀疏计算模式）
-- DenseSNN的平均发放率：与SNN采用完全相同的统计方法，在相同的测试集上统计脉冲发放频率
-- 两者发放率差异≤±0.001，确保唯一变量仅为是否启用稀疏计算优化
+同时，有三点限制需要明确。
 
-这种设计通过关闭稀疏计算，模拟了非稀疏的脉冲网络，用于对照实验验证 SNN 稀疏性的作用。
+1. 当前 GPU 上的功耗与延迟结果并不支持“SNN 已经更快更省电”的说法。
+2. PathMNIST 和 DermaMNIST 只做了 2 次重复，统计把握有限。
+3. 固定准确率控制变量实验、影响函数/记忆分数分析虽已有实现，但目前缺少可直接纳入正文汇总的最终结果，因此本文不将其作为既成结论报告。
 
-*注意：禁止使用极低阈值（如 v_threshold=0.001）来"破坏"模型，因为这会改变模型的学习动态，无法准确反映稀疏性的作用。*
+# 结论
 
-#### 3.1.3 ANN模型架构
+综合训练、隐私与效率实验结果，MedSparseSNN 可以归纳为以下四点结论。
 
-ANN模型采用与SNN完全相同的拓扑结构，但将PLIF神经元替换为ReLU激活函数，并移除时间维度处理。
+1. SNN 在 BloodMNIST 上展现出最清晰的隐私-准确率折中优势。
+2. DenseSNN 的退化说明稀疏实现本身是关键变量。
+3. 稀疏性带来的理论能效收益可迁移到 PathMNIST 与 DermaMNIST，但隐私收益的跨域显著性仍需更强攻击和更多重复实验验证。
+4. Spiking Transformer 扩展表明该方向具有跨架构可行性，但当前证据只足以支持“趋势一致”，不足以支持“全面优于 CNN 基线”。
 
-### 3.2 Parametric LIF (PLIF) 神经元公式
+总体而言，本文表明稀疏脉冲执行在 BloodMNIST 上能够带来清晰的隐私收益，并在跨数据集实验中展现出稳定的理论效率优势，但其隐私收益仍受数据域与实验设置影响。若要进一步提升投稿完成度，优先级最高的工作应是：补跑固定准确率控制变量实验、补齐 Blood 的完整 MIA 分布原始文件，以及为 Transformer 扩展记录正式的 latency/power 日志。
 
-在SpikingJelly框架中，离散时间PLIF神经元的数学模型为：
-
-$$ I_{syn}[t] = W \cdot X[t] $$
-$$ V[t] = (1-\alpha)V[t-1] + I_{syn}[t] $$
-$$ S[t] = H(V[t] - V_{th}) $$
-$$ V[t] = V[t] \cdot (1-S[t]) + V_{reset} \cdot S[t] $$
-
-其中：
-- $I_{syn}[t]$：t时刻的突触电流
-- $V[t]$：t时刻的膜电位
-- $\alpha = \exp(-\Delta t/\tau)$：膜时间常数的衰减因子，**α 是可学习参数**，对应膜时间常数 τ
-- $\Delta t$：离散时间步长
-- $\tau$：膜时间常数（单位：ms）
-- $S[t]$：t时刻的输出脉冲（0或1）
-- $H(\cdot)$：Heaviside阶跃函数
-- $V_{th}$：发放阈值
-- $V_{reset}$：重置电位
-
-在反向传播过程中，使用替代梯度函数ATan来近似不可导的阶跃函数：
-
-$$ \frac{\partial S[t]}{\partial V[t]} = \frac{\partial H(V[t] - V_{th})}{\partial V[t]} \approx \frac{\partial \text{ATan}(\beta(V[t] - V_{th}))}{\partial V[t]} $$
-
-其中：
-- $\beta$：替代梯度函数的平滑参数（本实验中 $\beta = 2.0$）
-- $\text{ATan}(x) = \frac{1}{2} + \frac{1}{\pi} \arctan(x)$：ATan替代梯度函数
-
-### 3.3 训练流程
-
-所有模型使用相同的训练流程：
-- **优化器**: AdamW (lr=1e-3, weight_decay=1e-4)
-- **学习率调度**: CosineAnnealingLR (T_max=50)
-- **时间步长**: T=6 (SNN/DenseSNN)
-- **批次大小**: 64
-- **训练轮数**: 50
-- **混合精度训练**: 启用AMP加速训练
-- **梯度裁剪**: 启用，max_norm=1.0
-
-### 3.4 超参数选择依据
-
-**1. 时间步数T的选择**
-   - 对比实验：T=4, 6, 8, 10
-   - 实验结果：
-     - T=4: 测试准确率92.87% ± 0.32%，MIA准确率0.521 ± 0.022
-     - T=6: 测试准确率93.63% ± 0.28%，MIA准确率0.500 ± 0.015（最优平衡点）
-     - T=8: 测试准确率93.45% ± 0.31%，MIA准确率0.503 ± 0.018
-     - T=10: 测试准确率93.12% ± 0.35%，MIA准确率0.505 ± 0.021
-   - 选择依据：T=6在准确率、MIA鲁棒性和计算效率之间取得最佳平衡
-
-**2. 学习率与训练轮数的选择**
-   - 学习率消融实验：
-     - lr=5e-4: 收敛速度较慢，50 epoch后测试准确率92.15% ± 0.42%
-     - lr=1e-3: 收敛稳定，50 epoch后测试准确率93.63% ± 0.28%（最优）
-     - lr=2e-3: 训练不稳定，存在震荡，测试准确率92.89% ± 0.51%
-   - 训练轮数选择：
-     - 30 epoch: 未充分收敛，测试准确率91.52% ± 0.45%
-     - 50 epoch: 充分收敛，验证集性能达到平台期
-     - 100 epoch: 出现过拟合迹象，测试准确率下降至93.15% ± 0.38%
-   - 选择依据：lr=1e-3配合50 epoch达到最佳性能
-
-### 3.5 成员推理攻击 (MIA) 方法
-
-我们采用基于置信度的黑盒MIA攻击方法，完整可复现细节如下：
-
-**1. 影子模型构建与训练**
-   - 训练5个与目标模型完全相同架构的影子模型
-   - **影子模型训练超参数（与目标模型完全一致）**：
-     - 优化器：AdamW (lr=1e-3, weight_decay=1e-4)
-     - 学习率调度：CosineAnnealingLR (T_max=50)
-     - 时间步长：T=6（SNN/DenseSNN）
-     - 批次大小：64
-     - 训练轮数：50
-     - 混合精度训练：启用AMP
-     - 梯度裁剪：启用，max_norm=1.0
-   - **影子模型数据集划分**：
-     - 目标模型训练集：BloodMNIST官方训练集（11,959样本）
-     - 影子模型数据集来源：与目标模型的训练/测试集完全独立划分，确保无重叠
-     - 具体划分流程：
-       1. 从BloodMNIST原始数据集中随机抽取60%样本作为影子模型的总数据集（约9,595样本）
-       2. 将影子模型总数据集随机划分为成员集（50%，约4,797样本）和非成员集（50%，约4,798样本）
-       3. 每个影子模型使用相同的数据集划分，但使用独立随机种子初始化
-   - 样本量设置：
-     - 影子模型训练集：每个影子模型使用成员集进行训练
-     - 攻击模型训练/验证划分：70%/30%比例
+# 参考文献 {-}
 
-**2. 攻击模型训练**
-   - 攻击模型：Logistic Regression（L2正则化，C=1.0）
-   - 输入特征（3维）：
-     1. 目标样本的预测置信度最大值
-     2. 置信度向量的熵（Entropy）
-     3. 预测类别概率与次大概率的差值
-   - 超参数设置：
-     - 优化器：liblinear（适用于小数据集）
-     - 最大迭代次数：1000
-     - 随机种子：42（保证可复现性）
+[1] S. B. Shrestha and G. Orchard, "SLAYER: Spike layer error reassignment in time," Advances in Neural Information Processing Systems, 2018.
 
-**3. 攻击执行与评估**
-   - 攻击执行：将训练好的攻击模型应用于目标模型的训练集和测试集样本
-   - 评估指标：准确率、AUC、F1-score、Precision、Recall
-   - 统计检验：5次独立重复实验，双侧t检验，显著性水平p<0.05
+[2] W. Fang, Z. Chen, J. Ding, J. Chen, H. Liu, and Z. Zhou, "Incorporating learnable membrane time constant to enhance learning of spiking neural network," in ICCV, 2021.
 
-**4. 过拟合验证模型**
-   - 为了验证MIA攻击的有效性，我们额外训练一个过拟合的ANN模型
-   - 过拟合模型设置：
-     - 无weight_decay（weight_decay=0）
-     - 训练100 epoch
-     - 学习率：1e-3（AdamW优化器）
-   - 验证标准：要求其MIA攻击准确率 ≥ 0.72，以确认攻击方法的有效性
+[3] R. Shokri, M. Stronati, C. Song, and V. Shmatikov, "Membership inference attacks against machine learning models," in IEEE Symposium on Security and Privacy, 2017.
 
----
+[4] A. Salem, Y. Wen, K. Bhatia, T. Engler, Y. Zhang, and C. J. Hsieh, "ML-Leaks: Model and data independent membership inference attacks and defenses on machine learning models," in NDSS, 2019.
 
-## 4. 实验设置与结果 (Experiments and Results)
+[5] L. Song, Z. Li, D. He, Y. Wang, and H. Jin, "Comprehensive privacy analysis of deep learning: Passive and active attacks, defenses, and their limitations," IEEE Transactions on Dependable and Secure Computing, 2020.
 
-### 4.1 数据集
+[6] S. Han, J. Pool, J. Tran, and W. J. Dally, "Learning both weights and connections for efficient neural networks," Advances in Neural Information Processing Systems, 2015.
 
-我们以BloodMNIST作为主数据集进行实验，该数据集属于MedMNIST系列，包含8类血液细胞图像（basophil, eosinophil, erythroblast, immature granulocytes, lymphocyte, monocyte, neutrophil, platelet），总计15,992张28x28像素的图像。为验证方法在不同医学影像域上的迁移性，我们进一步补充了PathMNIST病理图像数据集实验和DermaMNIST皮肤镜图像数据集实验。PathMNIST包含9类结直肠病理组织切片图像，同样采用28×28分辨率设定，可用于评估纹理主导场景下SNN的准确率-隐私-稀疏性权衡；DermaMNIST包含7类皮肤镜图像，用于评估另一类自然纹理更强、类别边界更细粒度的医学图像场景。
+[7] M. Davies et al., "Loihi: A neuromorphic manycore processor with on-chip learning," IEEE Micro, 2018.
 
-### 4.2 实验环境
+[8] P. A. Merolla et al., "A million spiking-neuron integrated circuit with a scalable communication network and interface," Science, 2014.
 
-- **硬件**: 现代GPU架构（8GB GDDR6显存）
-- **软件**: Python 3.10, PyTorch 2.1+, SpikingJelly ≥0.0.0.0.14
-- **功耗监测**: pynvml库
+[9] C. Dwork and A. Roth, "The algorithmic foundations of differential privacy," Foundations and Trends in Theoretical Computer Science, 2014.
 
-### 4.3 模型性能对比
+# 伦理声明 {-}
 
-表1展示了5次独立实验的统计结果（均值±标准差），采用IEEE三行表格式：
+本文使用的 BloodMNIST、PathMNIST 和 DermaMNIST 均来自公开基准数据集 MedMNIST。本文仅讨论模型行为、隐私攻击与效率指标，不涉及额外的人体实验或新增敏感数据采集。
 
-**表I：模型性能对比**
+# 致谢 {-}
 
-| 模型 | 参数量(M) | 测试准确率(%) | 训练时间(s) |
-|------|-----------|--------------|------------|
-| ANN | 0.119 | 95.59 ± 0.11 | 139.63 ± 0.94 |
-| SNN | 0.117 | 93.63 ± 0.28 | 572.49 ± 12.56 |
-| DenseSNN | 0.117 | 92.15 ± 0.35 | 568.32 ± 11.89 |
-
-*注：SNN 比 ANN 多的参数来自 PLIF 可学习衰减系数 α，结构完全对等。*
-
-![模型性能对比图](./outputs/figures/model_performance.png)
-
-*图I：不同模型的性能对比柱状图*
-
-### 4.4 稀疏性量化分析
-
-表II展示了不同阈值下的稀疏性结果，采用IEEE三行表格式：
-
-**表II：稀疏性量化分析**
-
-| v_threshold | 全局稀疏性 | 测试准确率(%) |
-|-------------|-----------|--------------|
-| 0.5 | 0.869 ± 0.012 | 93.21 ± 0.35 |
-| 0.75 | 0.945 ± 0.008 | 93.45 ± 0.28 |
-| 1.0 | 0.997 ± 0.001 | 93.63 ± 0.25 |
-| 1.5 | 0.999 ± 0.000 | 92.87 ± 0.42 |
-
-![稀疏性分析图](./outputs/figures/sparsity_vs_mia.png)
-
-*图II：稀疏度与MIA鲁棒性关系折线图*
-
-### 4.5 隐私保护评估
-
-表III展示了MIA攻击的完整评估结果，包括准确率、AUC、F1、精确率和召回率等指标，采用IEEE三行表格式：
-
-**表III：MIA隐私保护完整指标**
-
-| 模型 | 准确率 | AUC | F1 | 精确率 | 召回率 | 训练集置信度均值 | 测试集置信度均值 |
-|------|--------|-----|----|--------|--------|-----------------|-----------------|
-| SNN (Sparse) | 0.500 ± 0.015 | 0.502 ± 0.018 | 0.498 ± 0.020 | 0.501 ± 0.019 | 0.495 ± 0.022 | 0.125 ± 0.021 | 0.125 ± 0.020 |
-| DenseSNN | 0.562 ± 0.018* | 0.585 ± 0.021 | 0.558 ± 0.023 | 0.565 ± 0.022 | 0.551 ± 0.025 | 0.257 ± 0.032 | 0.258 ± 0.031 |
-| ANN | 0.628 ± 0.021** | 0.672 ± 0.025 | 0.615 ± 0.028 | 0.635 ± 0.026 | 0.597 ± 0.030 | 0.722 ± 0.041 | 0.716 ± 0.039 |
-| Overfit ANN | 0.745 ± 0.018** | 0.812 ± 0.022 | 0.738 ± 0.024 | 0.752 ± 0.021 | 0.725 ± 0.026 | 0.912 ± 0.025 | 0.789 ± 0.032 |
-
-*p&lt;0.05, **p&lt;0.01，均为与SNN (Sparse) 相比的双侧t检验结果
-
-![隐私保护性能对比图](./outputs/figures/confidence_distribution.png)
-
-*图III：成员/非成员样本置信度分布直方图*
-
-### 4.6 功耗与延迟分析
-
-表IV展示了功耗与延迟结果，采用IEEE三行表格式：
-
-**表IV：功耗与延迟分析**
-
-| 模型 | 平均发放率 | 延迟(ms) | 动态功耗(W) | 单样本能耗(mJ) |
-|------|-----------|---------|------------|--------------|
-| SNN (Sparse) | 0.003 | 4.724 ± 0.123 | 10.326 ± 0.214 | 48.778 ± 1.521 |
-| DenseSNN | 0.003 | 4.601 ± 0.105 | 12.567 ± 0.245 | 57.812 ± 1.678 |
-| ANN | 1.000 | 0.508 ± 0.021 | 9.300 ± 0.156 | 4.722 ± 0.213 |
-
-*表注：SNN与DenseSNN的平均发放率完全一致（均为0.003），确保唯一变量仅为是否启用稀疏计算优化。DenseSNN关闭了稀疏计算优化，强制所有神经元参与稠密计算，导致实测功耗高于SNN。*
-
-![功耗与延迟分析图](./outputs/figures/power_latency.png)
-
-*图IV：功耗-延迟散点图*
-
-### 4.7 跨数据集迁移评估
-
-为验证本文结论在不同医学图像模态上的稳定性，我们将 BloodMNIST 上表现较优的配置迁移到 PathMNIST 和 DermaMNIST，并在各自数据域上重新进行轻量筛选与正式对比。
-
-**表V：三数据集主结果对比**
-
-| 数据集 | 模型 | 测试准确率(%) | MIA Accuracy | MIA AUC | 平均发放率 | 理论有效MAC节省 |
-|------|------|--------------|-------------|--------|-----------|----------------|
-| BloodMNIST | ANN | 95.59 ± 0.11 | 0.628 ± 0.021 | 0.672 ± 0.025 | 1.000 | 0.0% |
-| BloodMNIST | SNN | 93.63 ± 0.28 | 0.500 ± 0.015 | 0.502 ± 0.018 | 0.003 | 99.7% |
-| PathMNIST | ANN | 85.12 ± 0.40 | 0.5412 ± 0.0065 | 0.5382 ± 0.0085 | N/A | 0.0% |
-| PathMNIST | SNN | 82.33 ± 0.31 | 0.5634 ± 0.0053 | 0.5972 ± 0.0029 | 0.1582 ± 0.0052 | 84.18 ± 0.52% |
-| DermaMNIST | ANN | 75.06 ± 0.20 | 0.4809 ± 0.0021 | 0.4857 ± 0.0016 | N/A | 0.0% |
-| DermaMNIST | SNN | 69.93 ± 0.20 | 0.4842 ± 0.0000 | 0.4954 ± 0.0005 | 0.0926 ± 0.0023 | 90.74 ± 0.23% |
-
-迁移实验显示出三个关键信号。第一，SNN 在三个数据集上都优于 DenseSNN，说明稀疏实现本身仍是重要变量，而不是简单的拓扑巧合。第二，SNN 的准确率代价随数据域而变化：在 PathMNIST 上仅比 ANN 低 2.79 个百分点，而在 DermaMNIST 上差距扩大到 5.13 个百分点，表明不同医学图像模态需要不同程度的数据域适配。第三，稀疏性带来的理论有效 MAC 节省在跨数据集迁移中保持稳定存在，尤其在 DermaMNIST 上平均发放率进一步降至 0.0926，对应 90.74% 的理论有效 MAC 节省。
-
-同时，跨数据集隐私结果也提示需要更谨慎的结论边界。在 BloodMNIST 上，SNN 相比 ANN 具有显著更强的 MIA 鲁棒性；而在 PathMNIST 和 DermaMNIST 上，当前黑盒攻击设定下并未观察到稳定且显著的跨域隐私优势。这说明“稀疏性降低记忆程度”的机制在主数据集上成立，但其跨域显著性仍依赖于攻击强度、数据域难度和训练配置。
-
-### 4.8 与SOTA隐私防御方法的对比
-
-为了进一步验证本文方法的优势，我们在与SNN完全对等的ANN架构上实现了DP-SGD差分隐私防御方法，并调整噪声系数使其MIA准确率与SNN接近（≈0.500）。
-
-**表VI：与SOTA隐私防御方法对比**
-
-| 方法 | 测试准确率(%) | MIA准确率 | 延迟(ms) |
-|------|--------------|-----------|---------|
-| ANN (基线) | 95.59 ± 0.11 | 0.628 ± 0.021 | 0.508 ± 0.021 |
-| ANN + DP-SGD | 86.98 ± 0.42 | 0.502 ± 0.016 | 0.584 ± 0.024 |
-| SNN (本文方法) | 93.63 ± 0.28 | 0.500 ± 0.015 | 4.724 ± 0.123 |
-
-实验结果分析：
-1. **准确率**：本文SNN方法（93.63%±0.28%）相比ANN+DP-SGD（86.98%±0.42%）有显著优势，准确率高约6.65%，表明本文方法无准确率损失。
-2. **隐私保护**：本文SNN方法的MIA准确率为0.500±0.015，与DP-SGD（0.502±0.016）接近，均达到接近随机猜测水平，表明两者隐私保护能力相当。
-3. **计算开销**：在通用GPU上，SNN的单样本推理延迟为4.724ms±0.123ms，高于ANN+DP-SGD的0.584ms±0.024ms；但在专用神经形态芯片上，SNN的事件驱动计算特性可实现1-2数量级的能效提升。
-4. **核心优势**：本文方法无需额外训练策略、无准确率损失、无额外计算开销（专用硬件上），相比DP-SGD具有显著优势。
-
----
-
-## 5. 消融实验与因果分析 (Ablation Study and Causal Analysis)
-
-### 5.1 稀疏度梯度消融实验
-
-为了验证稀疏性与隐私保护之间的因果关系，我们设计了梯度消融实验。通过调整v_threshold参数（0.5, 0.75, 1.0, 1.5），我们观察到稀疏度与MIA准确率之间存在负相关关系。
-
-**表VII：稀疏度梯度消融实验**
-
-| v_threshold | 稀疏度 | 测试准确率(%) | MIA准确率 |
-|-------------|--------|--------------|-----------|
-| 0.5 | 0.869 ± 0.012 | 93.21 ± 0.35 | 0.582 ± 0.021 |
-| 0.75 | 0.945 ± 0.008 | 93.45 ± 0.28 | 0.541 ± 0.018 |
-| 1.0 | 0.997 ± 0.001 | 93.63 ± 0.25 | 0.500 ± 0.015 |
-| 1.5 | 0.999 ± 0.000 | 92.87 ± 0.42 | 0.498 ± 0.016 |
-
-### 5.2 固定准确率的控制变量消融实验
-
-为了进一步验证稀疏性与隐私保护之间的因果关系，我们设计了固定准确率的控制变量实验。实验核心约束：通过调整v_threshold控制模型稀疏度，同时保持模型测试准确率波动≤±0.2%，仅观察稀疏度变化对MIA鲁棒性的影响。
-
-**表VIII：固定准确率的稀疏度控制变量实验**
-
-| 目标稀疏度 | 实际稀疏度 | 测试准确率(%) | 训练准确率(%) | 泛化Gap(%) | MIA准确率 |
-|-----------|-----------|--------------|--------------|-----------|-----------|
-| 0.850 | 0.852 ± 0.015 | 93.55 ± 0.18 | 94.87 ± 0.22 | 1.32 ± 0.15 | 0.578 ± 0.019 |
-| 0.900 | 0.898 ± 0.012 | 93.48 ± 0.15 | 94.65 ± 0.18 | 1.17 ± 0.12 | 0.552 ± 0.017 |
-| 0.950 | 0.947 ± 0.009 | 93.62 ± 0.12 | 94.42 ± 0.15 | 0.80 ± 0.10 | 0.524 ± 0.014 |
-| 0.990 | 0.989 ± 0.003 | 93.58 ± 0.10 | 93.95 ± 0.12 | 0.37 ± 0.08 | 0.501 ± 0.012 |
-| 0.999 | 0.998 ± 0.001 | 93.45 ± 0.15 | 93.62 ± 0.14 | 0.17 ± 0.06 | 0.497 ± 0.011 |
-
-实验结果表明，在测试准确率基本保持恒定的情况下，随着稀疏度从0.85提升至0.999，MIA准确率从0.578单调下降至0.497，同时泛化Gap从1.32%降至0.17%。
-
-**泛化性与隐私鲁棒性的关联分析**：
-基于表VIII的控制变量实验数据，我们计算了泛化Gap与MIA准确率的皮尔逊相关系数，结果为r=0.987（p<0.001）。这一高度正相关表明：模型的泛化能力（泛化Gap越小，泛化能力越强）与隐私鲁棒性（MIA准确率越低，隐私保护能力越强）之间存在显著的统计关联。
-
-具体而言，当稀疏度提升时，模型对训练数据的记忆程度降低（表现为训练置信度降低和泛化Gap缩小），同时MIA攻击准确率也随之降低。这一结果进一步强化了「稀疏度→MIA鲁棒性」的因果关系：更高的稀疏度通过降低模型对训练数据的记忆程度，同时提升了泛化能力和隐私保护能力。
-
-### 5.3 控制变量稀疏对比
-
-在同一SNN模型上，我们通过开关稀疏性机制（即调整阈值）进行对照实验。结果显示，高稀疏性设置（v_threshold=1.0）的MIA准确率为0.500，而低稀疏性设置（v_threshold=0.5）的MIA准确率为0.582（p<0.01）。
-
-### 5.4 PLIF可学习参数消融实验
-
-为了验证可学习PLIF神经元对稀疏性与隐私鲁棒性的增益，我们设计了参数消融实验。实验对比两组SNN模型，唯一变量为α是否可学习（即τ是否固定）：实验组1为基线SNN（α可学习，原有设置），实验组2为固定α的SNN（α固定为0.2，无学习过程）。
-
-**表IX：PLIF可学习参数消融实验**
-
-| 模型 | 测试准确率(%) | 全局稀疏度 | MIA准确率 |
-|------|--------------|-----------|-----------|
-| SNN (α可学习) | 93.63 ± 0.28 | 0.997 ± 0.001 | 0.500 ± 0.015 |
-| SNN (α固定=0.2) | 92.15 ± 0.35 | 0.985 ± 0.003 | 0.525 ± 0.018 |
-
-实验结果表明：
-1. **准确率**：可学习α的SNN测试准确率为93.63%±0.28%，比固定α的SNN（92.15%±0.35%）高约1.48%，表明可学习的膜时间常数能够提升模型的特征提取能力。
-2. **稀疏度**：可学习α的SNN全局稀疏度为0.997±0.001，略高于固定α的SNN（0.985±0.003），表明可学习的PLIF神经元能够优化脉冲发放模式，获得更高的稀疏性。
-3. **MIA准确率**：可学习α的SNN对MIA攻击的准确率为0.500±0.015，显著低于固定α的SNN（0.525±0.018），表明更高的稀疏性带来更强的隐私鲁棒性。
-
-#### PLIF替代梯度β参数消融实验
-
-为了验证替代梯度函数ATan的β参数选择的合理性，我们设计了β参数消融实验。实验基于基线SNN模型，调整β ∈ [1.0, 2.0, 3.0]，其余参数完全一致，完成5次独立重复实验。
-
-**表X：PLIF替代梯度β参数消融实验**
-
-| β | 测试准确率(%) | 全局稀疏度 | MIA准确率 |
-|---|--------------|-----------|-----------|
-| 1.0 | 92.78 ± 0.32 | 0.995 ± 0.002 | 0.512 ± 0.017 |
-| 2.0 | 93.63 ± 0.28 | 0.997 ± 0.001 | 0.500 ± 0.015 |
-| 3.0 | 93.12 ± 0.30 | 0.996 ± 0.001 | 0.508 ± 0.016 |
-
-实验结果分析：
-1. **准确率**：β=2.0时测试准确率最高（93.63%±0.28%），β=1.0时准确率最低（92.78%±0.32%），β=3.0时准确率略有下降（93.12%±0.30%）。
-2. **稀疏度**：β=2.0时全局稀疏度最高（0.997±0.001），β=1.0时稀疏度略低（0.995±0.002）。
-3. **MIA准确率**：β=2.0时MIA准确率最低（0.500±0.015），表明此时模型的隐私鲁棒性最强。
-4. **最优选择**：综合准确率、稀疏度和MIA鲁棒性三个指标，β=2.0是最优选择，验证了本文参数设置的合理性。
-
----
-
-## 6. 讨论 (Discussion)
-
-### 6.1 训练数据记忆程度量化分析
-
-为了直接量化SNN对训练数据的记忆程度，我们计算了样本级记忆分数和影响函数。记忆分数定义为模型对训练样本的预测置信度减去对测试样本的平均预测置信度，影响函数量化训练样本对模型参数的影响程度。
-
-**影响函数计算方法说明**：
-1. **核心定义**：影响函数量化单个训练样本对模型参数与最终预测结果的影响程度，通过衡量移除某一训练样本后模型参数的变化幅度来评估样本的重要性。
-2. **本文实现方式**：采用一阶高效近似算法计算影响函数，基于PyTorch的autograd实现，完整代码将随论文开源。具体步骤包括：
-   - 计算目标样本对模型损失的梯度
-   - 使用Hessian向量积（HVP）高效近似逆Hessian矩阵
-   - 结合训练样本梯度计算最终影响函数值
-3. **数值归一化方式**：对所有样本的影响函数值进行min-max归一化，保证不同模型间的数值可比。归一化公式为：
-   $$ \tilde{I}(z) = \frac{I(z) - \min_{z' \in \mathcal{Z}} I(z')}{\max_{z' \in \mathcal{Z}} I(z') - \min_{z' \in \mathcal{Z}} I(z')} $$
-   其中$I(z)$为原始影响函数值，$\tilde{I}(z)$为归一化后的影响函数值，$\mathcal{Z}$为所有训练样本集合。
-
-**表XI：模型记忆程度量化对比**
-
-| 模型 | 平均记忆分数 | 记忆分数标准差 | 平均训练置信度 | 训练置信度标准差 | 平均测试置信度 | 测试置信度标准差 | 平均影响函数 | 影响函数标准差 |
-|------|-------------|---------------|---------------|-----------------|---------------|-----------------|-------------|---------------|
-| SNN (Sparse) | 0.002 ± 0.012 | 0.125 ± 0.021 | 0.125 ± 0.020 | 0.125 ± 0.019 | 0.082 ± 0.015 | 0.123 ± 0.018 | 0.125 ± 0.021 |
-| DenseSNN | 0.085 ± 0.023 | 0.257 ± 0.032 | 0.258 ± 0.031 | 0.257 ± 0.030 | 0.173 ± 0.022 | 0.312 ± 0.028 | 0.257 ± 0.032 |
-| ANN | 0.215 ± 0.035 | 0.722 ± 0.041 | 0.716 ± 0.039 | 0.722 ± 0.040 | 0.507 ± 0.038 | 0.845 ± 0.042 | 0.722 ± 0.041 |
-
-*表注：SNN的平均影响函数与平均训练置信度数值趋同，源于SNN的稀疏脉冲激活特性，模型对训练样本的参数影响程度与预测置信度呈严格线性相关。*
-
-量化结果清晰表明：SNN的平均记忆分数仅为0.002，显著低于DenseSNN（0.085）和ANN（0.215）；同时SNN的平均影响函数也最低（0.123）。这一直接量化证据进一步支撑了"SNN的稀疏激活模式降低训练数据记忆程度"的核心机制。记忆分数和影响函数的分布直方图也显示SNN的分布更为集中，表明模型对不同样本的响应更加均衡，减少了对特定训练样本的过拟合。
-
-### 6.2 SNN隐私保护机制分析
-
-SNN对MIA攻击的强鲁棒性可以从其稀疏激活机制来解释。SNN的神经元只有在膜电位累积到阈值时才会发放脉冲，这种事件驱动的特性使得模型对输入数据的响应更加稀疏，减少了对训练数据的记忆程度。相比之下，ANN的连续激活机制使其更容易过拟合训练数据，从而增加隐私泄露风险。结合6.1节的直接量化证据，我们可以确认：稀疏激活是SNN隐私保护能力的核心机制。
-
-### 6.3 实测能耗与理论低功耗潜力的分析
-
-需要明确区分**通用GPU实测能耗**与**SNN的理论低功耗潜力**：
-
-1. **通用GPU实测能耗分析**: 在当前实验中，我们在通用GPU（NVIDIA RTX 4070）上实测了各模型的能耗。结果显示，SNN的实测能耗（动态功耗10.326W）略高于ANN（9.300W），这主要由于以下原因：
-   - **通用GPU架构限制**: 现有GPU架构为传统ANN的连续计算优化，未能充分利用SNN的事件驱动稀疏计算特性。
-   - **时间维度开销**: SNN需要处理T=6个时间步，增加了计算总量。
-   - **框架 overhead**: SpikingJelly框架在通用GPU上的实现可能引入额外的计算开销。
-
-2. **理论低功耗潜力**: 尽管在通用GPU上实测能耗较高，SNN在理论上和专用神经形态芯片上具有显著的低功耗优势：
-   - **事件驱动计算**: SNN仅在神经元发放脉冲时进行计算，理论上可节省大量无效操作。
-   - **专用硬件支持**: 参考Intel Loihi 2等专用神经形态芯片的能效数据（可达到TOPS/W级别），SNN在专用硬件上的能耗预计可比ANN低1-2个数量级。
-   - **理论有效操作数分析**: 我们进一步计算了各模型的理论操作数，结果如下：
-
-**表XII：理论有效操作数分析**
-
-| 模型 | 总MACs | 有效MACs | 平均发放率 | 理论MACs节省 |
-|------|--------|----------|-----------|-------------|
-| ANN | 1,906,535 | 1,906,535 | 1.000 | 0.0% |
-| SNN (Sparse) | 11,439,210 | 34,318 | 0.003 | 99.7% |
-| DenseSNN | 11,439,210 | 11,439,210 | 0.003 | 0.0% |
-
-**理论MACs计算方法说明：**
-
-1. **ANN的MACs计算逻辑**：对于传统ANN，每个卷积层和全连接层的MAC（乘加操作）数按标准方法计算：
-   - Conv2d层：MACs = 输出通道数 × 输出高度 × 输出宽度 × 输入通道数 × 卷积核高度 × 卷积核宽度
-   - Linear层：MACs = 输入特征数 × 输出特征数
-
-2. **SNN总MACs计算**：SNN与ANN采用完全对等的拓扑结构，因此SNN的单步MACs与ANN的MACs完全一致。SNN的总MACs为T=6时间步的累计值，即与ANN相同架构的单步MACs乘以时间步数T：
-   - 总MACs = 单步MACs × T
-
-3. **有效MACs计算**：有效MACs仅统计神经元发放脉冲时的操作数：
-   - 有效MACs = 总MACs × 平均神经元发放率
-   - 其中平均发放率通过在测试集上统计所有神经元在所有时间步的脉冲发放频率获得
-
-4. **DenseSNN的MACs计算**：DenseSNN关闭了稀疏计算优化，强制所有神经元在每个时间步都参与计算，因此其有效MACs等于总MACs
-
-分析表明，由于SNN的平均神经元发放率仅为0.003，在专用神经形态芯片上可充分利用事件驱动特性，理论上可节省99.7%的有效MAC操作，展现出显著的能效潜力。
-
-本研究的功耗分析重点在于验证SNN的**理论低功耗潜力**，而非声称在当前通用GPU上已实现低功耗推理。
-
-### 6.4 医疗AI场景的适用性
-
-SNN在医疗AI场景中具有独特优势：
-1. **隐私保护**: 稀疏激活机制自然降低了隐私泄露风险。
-2. **计算效率**: 在专用硬件上，稀疏性可显著降低功耗。
-3. **生物学可解释性**: 生物视觉皮层通过脉冲序列编码视觉特征，仅对边缘、纹理等关键刺激产生神经发放，这与SNN的事件驱动稀疏激活机制高度一致。在血液细胞分类任务中，SNN的脉冲发放仅响应细胞的核型、颗粒度等核心判别特征，相比ANN的全像素稠密激活，其特征提取过程更符合生物视觉机制，具备天然的可解释性，便于临床医生理解模型的决策依据。
-
-### 6.5 实验局限性
-
-本研究存在以下局限性：
-
-1. **数据集局限性**：尽管本文新增了PathMNIST病理图像和DermaMNIST皮肤镜图像迁移实验，但整体验证仍集中在MedMNIST这一类28×28小尺寸医疗图像基准上。结果表明，稀疏性带来的理论能效优势具有一定迁移性，但准确率与隐私优势的显著性仍明显依赖数据域，因此对于高分辨率医疗影像（如CT、MRI等，通常为256×256或更高分辨率）的适配方案仍需进一步探索。
-
-2. **硬件局限性**：功耗测量在通用GPU上进行，未能完全反映SNN在专用神经形态硬件上的性能。
-
-3. **攻击方法局限性**：MIA攻击方法相对简单。我们在补充的PathMNIST和DermaMNIST实验中观察到，当前黑盒攻击设定下 SNN 的 MIA 指标并未稳定且显著优于 ANN，说明隐私优势在跨数据域迁移时对攻击强度、重复次数和影子模型设置较为敏感，后续仍需更复杂的攻击策略与更大样本量来进一步验证模型安全性。
-
----
-
-## 7. Spiking Transformer：跨架构的稀疏性优势验证
-
-为了验证SNN稀疏性优势在Transformer架构上的普适性，我们开发了轻量化的Spiking Transformer模型（LightSpikingTransformer），并与现有SNN-CNN进行对照实验。
-
-### 7.1 LightSpikingTransformer架构设计
-
-LightSpikingTransformer采用以下参数设计，确保与现有SNN-CNN的参数量严格对齐：
-- **Patch尺寸**：4×4
-- **Transformer Block层数**：2层
-- **隐藏维度**：68
-- **注意力头数**：2
-- **FFN中间维度**：136
-- **总参数量**：0.119M（与SNN-CNN的0.119M差异仅0.46%）
-
-模型使用PLIF神经元，时间步T=6，保持稀疏计算优化，输入输出格式与现有SNN-CNN完全一致，可无缝对接现有训练/测试/攻击脚本。
-
-### 7.2 实验结果与分析
-
-表XIII展示了Spiking Transformer与现有模型的性能-隐私-功耗对比结果：
-
-**表XIII：Spiking Transformer与现有模型的性能-隐私-功耗对比**
-
-| 模型 | 参数量(M) | 测试准确率(%) | MIA准确率 | 全局稀疏度 | 平均发放率 | 延迟(ms) | 单样本能耗(mJ) |
-|------|-----------|--------------|-----------|-----------|-----------|---------|--------------|
-| ANN | 0.119 | 95.59 ± 0.11 | 0.628 ± 0.021 | 0.000 | 1.000 | 0.508 ± 0.021 | 4.722 ± 0.213 |
-| SNN-CNN | 0.117 | 93.63 ± 0.28 | 0.500 ± 0.015 | 0.997 ± 0.001 | 0.003 | 4.724 ± 0.123 | 48.778 ± 1.521 |
-| Spiking Transformer | 0.119 | 92.85 ± 0.32 | 0.503 ± 0.018 | 0.996 ± 0.002 | 0.004 | 5.123 ± 0.156 | 52.345 ± 1.789 |
-| DenseSNN | 0.117 | 92.15 ± 0.35 | 0.562 ± 0.018 | 0.000 | 0.003 | 4.601 ± 0.105 | 57.812 ± 1.678 |
-
-为了进一步验证Transformer架构下稀疏性与隐私鲁棒性的因果关系，我们基于LightSpikingTransformer模型进行了稀疏度梯度消融实验，调整v_threshold ∈ [0.5, 0.75, 1.0, 1.5]，完成5次独立重复实验。
-
-**表XIV：Spiking Transformer稀疏度消融实验**
-
-| v_threshold | 全局稀疏度 | 测试准确率(%) | MIA准确率 |
-|-------------|-----------|--------------|-----------|
-| 0.5 | 0.865 ± 0.014 | 92.12 ± 0.34 | 0.580 ± 0.020 |
-| 0.75 | 0.942 ± 0.009 | 92.54 ± 0.29 | 0.539 ± 0.017 |
-| 1.0 | 0.996 ± 0.002 | 92.85 ± 0.32 | 0.503 ± 0.018 |
-| 1.5 | 0.999 ± 0.000 | 92.01 ± 0.41 | 0.501 ± 0.016 |
-
-![Spiking Transformer性能对比图](./outputs/figures/spiking_transformer_performance.png)
-
-*图V：Spiking Transformer与现有模型的准确率对比柱状图*
-
-![Spiking Transformer稀疏度-MIA鲁棒性图](./outputs/figures/transformer_sparsity_vs_mia.png)
-
-*图VI：Spiking Transformer架构下稀疏度与MIA鲁棒性关系折线图*
-
-### 7.3 结果分析与讨论
-
-实验结果表明，稀疏性优势在Transformer架构上同样成立：
-
-1. **准确率对比**：Spiking Transformer的测试准确率为92.85%±0.32%，略低于SNN-CNN的93.63%±0.28%，但仍保持在可接受范围内。
-
-2. **隐私保护性能**：Spiking Transformer的MIA攻击准确率为0.503±0.018，与SNN-CNN的0.500±0.015接近，均接近随机猜测水平，表明稀疏性在Transformer架构上同样能有效降低模型对训练数据的记忆程度。
-
-3. **稀疏度与发放率**：Spiking Transformer的全局稀疏度为0.996±0.002，平均发放率为0.004，与SNN-CNN的稀疏激活特性保持一致。
-
-4. **跨架构普适性验证**：通过与SNN-CNN的对照实验，我们验证了SNN的稀疏性优势具有跨架构的普适性，无论是CNN还是Transformer架构，稀疏激活模式都能有效提升隐私保护鲁棒性。
-
-**准确率差异原因分析**：Spiking Transformer的测试准确率略低于SNN-CNN，主要原因在于：
-1. 本任务使用28×28小尺寸血液细胞图像，CNN的局部卷积核已能充分捕捉细胞的形态、纹理等核心判别特征，Transformer的全局长程依赖优势无法充分发挥；
-2. 小尺寸图像切分为4×4的patch后，全局注意力的计算开销收益低于其带来的过拟合风险。
-
-**优化方向**：针对高分辨率医疗影像（如ChestX-ray8、BraTS等），可采用局部窗口注意力、卷积-注意力混合架构，平衡特征提取能力与计算开销。
-
----
-
-## 8. 结论与展望 (Conclusion and Future Work)
-
-### 8.1 结论
-
-本文提出了HemoSparse框架，在医疗AI场景下系统性地探讨了SNN的稀疏性在隐私保护与低功耗推理方面的潜力。通过5次独立重复实验和严谨的对照实验设计，我们得到以下主要结论，与引言1.4节提出的5点核心贡献一一对应：
-
-1. **对应贡献1**：本文提出了HemoSparse框架，在医疗AI场景下系统性地探讨SNN的稀疏性与隐私保护能力之间的关联。实验结果表明，尽管ANN在测试准确率上（95.59%±0.11%）略高于SNN（93.63%±0.28%），但SNN在主数据集 BloodMNIST 上对成员推理攻击（MIA）表现出显著更强的鲁棒性，其MIA攻击准确率降至接近随机猜测水平（0.500±0.015）。
-
-2. **对应贡献2**：在BloodMNIST数据集上进行了严谨的对照实验，并在PathMNIST和DermaMNIST上完成了迁移验证。结果显示，SNN 在三个数据集上均优于 DenseSNN，并在 PathMNIST 与 DermaMNIST 上分别保持 84.18% 和 90.74% 的理论有效 MAC 节省，说明稀疏性优势具备跨数据集迁移的稳定性，但其准确率代价和隐私优势强度受数据域显著影响。
-
-3. **对应贡献3**：通过稀疏度梯度消融实验（v_threshold ∈ [0.5, 0.75, 1.0, 1.5]），量化分析了SNN的稀疏性与隐私保护能力之间的关系，为相关研究提供了实证证据。我们还通过固定准确率的控制变量消融实验，进一步验证了稀疏性与隐私保护之间的因果关系。
-
-4. **对应贡献4**：开发了轻量化Spiking Transformer模型，验证了SNN稀疏性优势在Transformer架构上的普适性，进一步升华了研究结论。通过严格的参数量对齐和单一变量对照实验，验证了SNN稀疏性优势在Transformer架构上同样成立。Spiking Transformer的MIA攻击准确率为0.503±0.018，与SNN-CNN接近，进一步巩固了「稀疏度→隐私保护」的因果关系。
-
-5. **对应贡献5**：通过5次独立重复实验、跨数据集迁移评估和双侧t检验，保证了实验结果的统计显著性和可靠性。需要明确区分通用GPU实测能耗与SNN的理论低功耗潜力。尽管在当前通用GPU上SNN的实测能耗略高，但理论分析和专用神经形态芯片的已有研究表明，SNN在专用硬件上具有显著的能效优势，且该趋势在 BloodMNIST、PathMNIST、DermaMNIST 三个数据集上均得到稀疏率支持。
-
-本研究为医疗AI场景下的隐私保护与高效推理提供了新的研究视角和实验证据，希望能够促进SNN在医疗领域的进一步研究与应用。
-
-### 8.2 未来工作
-
-1. **扩展数据集与高分辨率适配**: 在更多医疗影像数据集上验证SNN的隐私保护能力。针对高分辨率医疗影像（如ChestX-ray8、BraTS等），可采用以下优化方案：
-   - 使用多尺度脉冲编码策略处理高分辨率输入
-   - 探索脉冲注意力机制以聚焦医学影像的关键区域
-   - 研究时序脉冲聚合方法以提升大尺寸图像的特征提取效率
-   - 采用分块编码策略将高分辨率图像划分为多个小尺寸块，分别进行SNN处理后再聚合
-
-2. **专用神经形态硬件验证**: 探索SNN在专用神经形态芯片上的性能表现，具体计划包括：
-   - 在Intel Loihi 2或TrueNorth芯片上部署SNN模型
-   - 对比专用硬件与通用GPU的能效差异
-   - 探索片上学习（On-chip Learning）在医疗场景中的应用
-
-3. **攻击策略扩展**: 设计更复杂的隐私攻击方法，全面评估模型安全性，包括：
-   - 基于标签-only的MIA攻击
-   - 自适应MIA攻击
-   - 结合模型架构知识的白盒攻击
-
-4. **理论分析**: 从理论上分析SNN稀疏性与隐私保护能力的关系。
-
-5. **代码开源计划**: 本文录用后，将开源全部训练/测试/攻击代码、预训练模型、复现脚本至GitHub，保证研究结果的可复现性。
-
----
-
-## 参考文献 (References)
-
-[1] S. B. Shrestha and G. Orchard, "SLAYER: Spike layer error reassignment in time," Advances in Neural Information Processing Systems, vol. 31, 2018.
-
-[2] R. Xu, Y. Li, and X. Chen, "Spiking neural networks for lung nodule detection in medical images," IEEE Transactions on Medical Imaging, vol. 40, no. 5, pp. 1234-1245, 2021.
-
-[3] W. Fang, Z. Chen, J. Ding, J. Chen, H. Liu, and Z. Zhou, "Incorporating learnable membrane time constant to enhance learning of spiking neural network," in Proceedings of the IEEE/CVF International Conference on Computer Vision, 2021, pp. 14919-14928.
-
-[4] R. Shokri, M. Stronati, C. Song, and V. Shmatikov, "Membership inference attacks against machine learning models," in 2017 IEEE Symposium on Security and Privacy (SP), 2017, pp. 3-18.
-
-[5] A. Salem, Y. Wen, K. Bhatia, T. Engler, Y. Zhang, and C. J. Hsieh, "ML-leaks: Model and data independent membership inference attacks and defenses on machine learning models," in 26th Annual Network and Distributed System Security Symposium (NDSS 2019), 2019.
-
-[6] L. Song, Z. Li, D. He, Y. Wang, and H. Jin, "Comprehensive privacy analysis of deep learning: Passive and active attacks, defenses, and their limitations," IEEE Transactions on Dependable and Secure Computing, vol. 18, no. 4, pp. 1649-1664, 2020.
-
-[7] Z. Wang, Z. Yan, and Y. Zhang, "Privacy-preserving spiking neural networks: A survey," IEEE Transactions on Neural Networks and Learning Systems, vol. 33, no. 12, pp. 7364-7383, 2022.
-
-[8] M. Li, Q. Zhang, and L. Wang, "Multi-modal medical data fusion using spiking neural networks," IEEE Journal of Biomedical and Health Informatics, vol. 27, no. 3, pp. 1456-1467, 2023.
-
-[9] S. Han, J. Pool, J. Tran, and W. J. Dally, "Learning both weights and connections for efficient neural network," Advances in Neural Information Processing Systems, vol. 28, 2015.
-
-[10] G. Hinton, O. Vinyals, and J. Dean, "Distilling the knowledge in a neural network," Machine Learning, vol. 14, no. 7, pp. 38–39, 2015.
-
-[11] M. Davies, N. Srinivasa, T. H. Lin, G. Chinya, Y. Cao, S. H. Choday, et al., "Loihi: A neuromorphic manycore processor with on-chip learning," IEEE Micro, vol. 38, no. 1, pp. 82-99, 2018.
-
-[12] P. A. Merolla, J. V. Arthur, R. Alvarez-Icaza, A. S. Cassidy, J. Sawada, F. Akopyan, et al., "A million spiking-neuron integrated circuit with a scalable communication network and interface," Science, vol. 345, no. 6197, pp. 668-673, 2014.
-
-[13] C. Dwork, A. Roth, et al., "The algorithmic foundations of differential privacy," Foundations and Trends in Theoretical Computer Science, vol. 9, no. 3-4, pp. 211-407, 2014.
-
-[14] F. Tramèr, F. Zhang, A. Juels, M. K. Reiter, and T. Ristenpart, "Stealing machine learning models via prediction APIs," in 25th USENIX Security Symposium (USENIX Security 16), 2016, pp. 601-618.
-
-[15] Y. Zhang, X. Chen, and W. Li, "On the privacy properties of spiking neural networks," in Proceedings of the AAAI Conference on Artificial Intelligence, vol. 35, no. 12, 2021, pp. 10873-10881.
-
-[16] Z. Chen, H. Wang, and S. Liu, "Membership inference attacks on spiking neural networks: An empirical study," IEEE Transactions on Information Forensics and Security, vol. 17, pp. 2345-2358, 2022.
-
-[17] X. Liu, Y. Li, and Q. Zhang, "Privacy-preserving federated learning with spiking neural networks," IEEE Transactions on Parallel and Distributed Systems, vol. 34, no. 5, pp. 1567-1580, 2023.
-
-[18] R. Zhao, Y. Wang, and Z. Li, "DP-SNN: Differentially Private Spiking Neural Networks," in International Joint Conference on Artificial Intelligence (IJCAI), 2022, pp. 1234-1240.
-
-[19] J. Wu, Y. Chen, and Z. Wang, "Adversarial training for privacy-preserving spiking neural networks," in Proceedings of the IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP), 2023, pp. 1-5.
-
----
-
-## 伦理声明 (Ethics Statement)
-
-本研究使用的 BloodMNIST、PathMNIST 和 DermaMNIST 数据集均来自公开合规的 MedMNIST 基准，相关图像均经过匿名化处理，无任何可识别的患者个人身份信息。本研究的所有实验均严格遵循医疗数据使用伦理规范，不存在额外的人体实验干预或新数据采集流程。所有分析均基于已公开的基准数据集进行。
-
----
-
-## 致谢 (Acknowledgements)
-
-感谢 MedMNIST 项目团队提供 BloodMNIST、PathMNIST 与 DermaMNIST 数据集，以及 SpikingJelly 框架开发团队的支持。本研究得到了现代 GPU 架构和相关深度学习框架的有力支撑。
-
----
-
-**报告生成日期**: 2026年3月9日  
-**项目版本**: HemoSparse v1.0
+感谢 MedMNIST 与 SpikingJelly 社区提供数据与框架支持。

@@ -1,2 +1,0 @@
-dataset,model,encoding,augment,T,epochs,repeats,val_acc,test_acc,training_time,power,latency,params,output_prefix
-pathmnist,ANN,direct,True,6,1,1,76.29 ± 0.00,79.23 ± 0.00,20.37 ± 0.00s,N/A,0.03 ± 0.00ms/sample,119521 (0.120M),pathmnist_smoke

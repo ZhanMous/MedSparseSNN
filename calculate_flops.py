@@ -10,8 +10,9 @@ from models import SNN, DenseSNN, ANN
 import csv
 import os
 
-OUTPUT_DIR = 'outputs'
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+OUTPUT_ROOT = 'outputs'
+CSV_DIR = os.path.join(OUTPUT_ROOT, 'csv')
+os.makedirs(CSV_DIR, exist_ok=True)
 
 
 def count_conv2d_macs(layer, input_shape):
@@ -167,7 +168,7 @@ def main():
         'MACs_Saving': '0.0%'
     })
     
-    csv_path = os.path.join(OUTPUT_DIR, 'theoretical_flops.csv')
+    csv_path = os.path.join(CSV_DIR, 'theoretical_flops.csv')
     with open(csv_path, 'w', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=['Model', 'Total_MACs', 'Total_FLOPs', 
                                                  'Effective_MACs', 'Spike_Rate', 'MACs_Saving'])

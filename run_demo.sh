@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-# Quick demo setup for HemoSparse (small smoke test)
+# Quick demo setup for MedSparseSNN (small smoke test)
 # Usage: bash run_demo.sh
 
 if ! command -v conda &> /dev/null; then
@@ -9,14 +9,14 @@ if ! command -v conda &> /dev/null; then
   exit 1
 fi
 
-ENV_NAME=hemosparse
+ENV_NAME=medsparsesnn
 
 echo "Creating/updating conda env '$ENV_NAME'..."
 conda env create -f environment.yml || conda env update -f environment.yml
 
 echo "Activating env and installing requirements via pip..."
 source "$(conda info --base)/etc/profile.d/conda.sh"
-conda activate $ENV_NAME
+conda activate "$ENV_NAME"
 pip install -r requirements.txt
 
 echo "Running a small data loader smoke test..."

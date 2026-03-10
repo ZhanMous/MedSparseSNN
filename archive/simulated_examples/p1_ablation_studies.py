@@ -236,7 +236,7 @@ def get_test_acc_from_outputs(model_name):
 # 主实验函数
 def run_p1_ablation_experiments():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f"[HemoSparse P1] 使用设备: {device}")
+    print(f"[MedSparseSNN P1] 使用设备: {device}")
     
     # 5次重复实验的种子
     seeds = [42, 43, 44, 45, 46]

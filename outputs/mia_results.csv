@@ -1,5 +1,0 @@
-Model,MIA Accuracy,Train Confidence,Test Confidence
-SNN (Sparse),0.500 ± 0.015,0.125 ± 0.021,0.125 ± 0.020
-DenseSNN,0.562 ± 0.018,0.257 ± 0.032,0.258 ± 0.031
-ANN,0.628 ± 0.021*,0.722 ± 0.041,0.716 ± 0.039
-Overfit ANN,0.745 ± 0.018**,0.912 ± 0.025,0.789 ± 0.032

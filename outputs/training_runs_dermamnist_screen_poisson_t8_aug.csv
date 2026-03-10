@@ -1,3 +1,0 @@
-dataset,model,seed,encoding,augment,T,epochs,best_epoch,val_acc,test_acc,training_time,power,latency,params
-dermamnist,SNN,42,poisson,True,8,8,3,67.098703888335,65.7356608478803,37.204352140426636,38.2188,0.13750266718659532,119363
-dermamnist,DenseSNN,42,poisson,True,8,8,1,66.89930209371884,66.88279301745636,26.210958242416382,19.2127,0.30731842343811877,119367

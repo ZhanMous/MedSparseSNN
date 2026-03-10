@@ -8,6 +8,13 @@ outputs/checkpoints/
 outputs/models/
 outputs/**/*.pth
 outputs/power_measurements.csv
+outputs/csv/
+outputs/paper-build/
+outputs/tables/
+outputs/*.aux
+outputs/*.log
+outputs/*.tex
+outputs/*.toc
 
 *.pyc
 *.pyo

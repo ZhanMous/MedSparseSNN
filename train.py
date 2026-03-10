@@ -40,8 +40,12 @@ ACCUMULATION_STEPS = 1  # 梯度累积步数
 GRADIENT_CLIP = 1.0     # 梯度裁剪
 
 # 保存目录
-OUTPUT_DIR = 'outputs'
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+OUTPUT_ROOT = 'outputs'
+CHECKPOINT_DIR = os.path.join(OUTPUT_ROOT, 'checkpoints')
+CSV_DIR = os.path.join(OUTPUT_ROOT, 'csv')
+
+os.makedirs(CHECKPOINT_DIR, exist_ok=True)
+os.makedirs(CSV_DIR, exist_ok=True)
 
 DEFAULT_MODELS = ['SNN', 'DenseSNN', 'ANN']
 DEFAULT_SEEDS = [42, 43, 44, 45, 46]
@@ -208,7 +212,7 @@ def train_model(
     
     # 设备
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f"[HemoSparse] 使用设备: {device}")
+    print(f"[MedSparseSNN] 使用设备: {device}")
     if torch.cuda.is_available():
         print(f"  GPU: {torch.cuda.get_device_name(0)}, 显存: {torch.cuda.get_device_properties(0).total_memory/1024**3:.1f}GB")
     model = model.to(device)
@@ -291,7 +295,7 @@ def train_model(
             best_state_dict = copy.deepcopy(model.state_dict())
 
             checkpoint_name = output_prefix or dataset_flag
-            model_path = os.path.join(OUTPUT_DIR, f'{checkpoint_name}_{model_name}_T{T_value}_seed{seed}.pth')
+            model_path = os.path.join(CHECKPOINT_DIR, f'{checkpoint_name}_{model_name}_T{T_value}_seed{seed}.pth')
             torch.save({
                 'epoch': epoch,
                 'model_state_dict': model.state_dict(),
@@ -412,7 +416,7 @@ def run_experiments(
             results[model].append(result)
 
     detailed_rows = [row for rows in results.values() for row in rows]
-    detailed_path = os.path.join(OUTPUT_DIR, f'training_runs_{output_prefix}.csv')
+    detailed_path = os.path.join(CSV_DIR, f'training_runs_{output_prefix}.csv')
     with open(detailed_path, 'w', newline='') as handle:
         writer = csv.DictWriter(
             handle,
@@ -422,7 +426,7 @@ def run_experiments(
         writer.writerows(detailed_rows)
 
     summary = summarize_results(results, output_prefix)
-    summary_path = os.path.join(OUTPUT_DIR, f'training_summary_{output_prefix}.csv')
+    summary_path = os.path.join(CSV_DIR, f'training_summary_{output_prefix}.csv')
     with open(summary_path, 'w', newline='') as handle:
         writer = csv.DictWriter(
             handle,

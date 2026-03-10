@@ -237,7 +237,7 @@ def get_medmnist_loaders(
     n_train = len(train_dataset)
     n_val = len(val_dataset)
     n_test = len(test_dataset)
-    print(f"[HemoSparse] {dataset_flag} 加载完成 | 模式={mode} | T={T} | encoding={encoding}")
+    print(f"[MedSparseSNN] {dataset_flag} 加载完成 | 模式={mode} | T={T} | encoding={encoding}")
     print(f"  训练集: {n_train} | 验证集: {n_val} | 测试集: {n_test}")
     print(f"  batch_size={batch_size} | num_workers={num_workers} | pin_memory={pin_memory}")
     print(f"  类别: {list(info['label'].values())}")

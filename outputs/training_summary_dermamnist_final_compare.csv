@@ -1,4 +1,0 @@
-dataset,model,encoding,augment,T,epochs,repeats,val_acc,test_acc,training_time,power,latency,params,output_prefix
-dermamnist,SNN,direct,False,6,15,2,71.73 ± 0.55,69.93 ± 0.20,55.65 ± 0.06s,29.27 ± 2.06W,0.12 ± 0.00ms/sample,119363 (0.119M),dermamnist_final_compare
-dermamnist,DenseSNN,direct,False,6,15,2,67.05 ± 0.05,66.81 ± 0.02,40.20 ± 0.11s,18.63 ± 0.10W,0.24 ± 0.00ms/sample,119367 (0.119M),dermamnist_final_compare
-dermamnist,ANN,direct,False,6,15,2,77.07 ± 0.20,75.06 ± 0.20,16.04 ± 0.23s,14.51 ± 0.86W,0.03 ± 0.00ms/sample,119357 (0.119M),dermamnist_final_compare

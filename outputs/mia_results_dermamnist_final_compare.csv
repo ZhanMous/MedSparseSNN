@@ -1,4 +1,0 @@
-dataset,model,epochs,repeats,shadow_models,encoding,augment,T,accuracy,auc,f1,precision,recall,significance_vs_ann
-dermamnist,SNN,3,2,2,direct,False,6,0.4842 ± 0.0000,0.4954 ± 0.0005,0.0000 ± 0.0000,0.0000 ± 0.0000,0.0000 ± 0.0000,
-dermamnist,DenseSNN,3,2,2,direct,False,6,0.4842 ± 0.0000,0.4949 ± 0.0000,0.0000 ± 0.0000,0.0000 ± 0.0000,0.0000 ± 0.0000,
-dermamnist,ANN,3,2,2,direct,False,6,0.4809 ± 0.0021,0.4857 ± 0.0016,0.4538 ± 0.0086,0.4961 ± 0.0025,0.4182 ± 0.0129,

@@ -1,4 +1,0 @@
-dataset,model,encoding,augment,T,epochs,repeats,val_acc,test_acc,training_time,power,latency,params,output_prefix
-pathmnist,SNN,direct,False,6,15,2,92.54 ± 0.18,82.33 ± 0.31,883.03 ± 16.84s,23.93 ± 1.14W,0.13 ± 0.00ms/sample,119527 (0.120M),pathology_final_compare
-pathmnist,DenseSNN,direct,False,6,15,2,58.01 ± 0.61,62.02 ± 0.85,527.74 ± 10.72s,21.88 ± 0.50W,0.23 ± 0.02ms/sample,119531 (0.120M),pathology_final_compare
-pathmnist,ANN,direct,False,6,15,2,96.70 ± 0.08,85.12 ± 0.40,170.11 ± 4.17s,14.77 ± 0.68W,0.04 ± 0.00ms/sample,119521 (0.120M),pathology_final_compare

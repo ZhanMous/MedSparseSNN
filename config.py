@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-HemoSparse 全局配置文件
+MedSparseSNN 全局配置文件
 针对现代GPU架构 (8GB GDDR6) 专属优化
 包含混合精度(AMP)、自适应Batch Size调整与GPU功耗实测逻辑
 """
@@ -15,7 +15,7 @@ matplotlib.use('Agg')  # 非GUI后端，适合服务器环境
 # ===========================================
 DATA_FLAG = 'bloodmnist'  # 数据集标识
 DATA_ROOT = './data'  # 数据根目录
-PROJECT_NAME = 'HemoSparse'  # 项目名称
+PROJECT_NAME = 'MedSparseSNN'  # 项目名称
 SEED = 42  # 随机种子
 DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')  # 主设备
 T = 6  # 时间步长

@@ -1,2 +1,0 @@
-dataset,model,seed,encoding,augment,T,epochs,best_epoch,val_acc,test_acc,training_time,power,latency,params
-pathmnist,ANN,42,direct,True,6,8,8,93.28268692522991,87.40947075208913,100.47666215896606,15.827000000000002,0.03800772812496689,119521

@@ -1,3 +1,0 @@
-dataset,model,encoding,augment,T,epochs,repeats,val_acc,test_acc,training_time,power,latency,params,output_prefix
-pathmnist,SNN,poisson,True,6,8,1,59.95 ± 0.00,65.86 ± 0.00,475.45 ± 0.00s,25.40 ± 0.00W,0.14 ± 0.00ms/sample,119527 (0.120M),pathology_screen_poisson_t6_aug
-pathmnist,DenseSNN,poisson,True,6,8,1,33.07 ± 0.00,42.16 ± 0.00,323.72 ± 0.00s,18.42 ± 0.00W,0.36 ± 0.00ms/sample,119531 (0.120M),pathology_screen_poisson_t6_aug

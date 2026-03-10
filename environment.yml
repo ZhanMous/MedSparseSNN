@@ -1,4 +1,4 @@
-name: hemosparse
+name: medsparsesnn
 channels:
   - pytorch
   - nvidia

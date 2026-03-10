@@ -1,3 +1,0 @@
-dataset,model,encoding,augment,T,epochs,repeats,val_acc,test_acc,training_time,power,latency,params,output_prefix
-dermamnist,SNN,poisson,True,8,8,1,67.10 ± 0.00,65.74 ± 0.00,37.20 ± 0.00s,38.22 ± 0.00W,0.14 ± 0.00ms/sample,119363 (0.119M),dermamnist_screen_poisson_t8_aug
-dermamnist,DenseSNN,poisson,True,8,8,1,66.90 ± 0.00,66.88 ± 0.00,26.21 ± 0.00s,19.21 ± 0.00W,0.31 ± 0.00ms/sample,119367 (0.119M),dermamnist_screen_poisson_t8_aug

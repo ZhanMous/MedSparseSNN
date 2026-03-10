@@ -17,10 +17,11 @@ import sys
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUTPUT_DIR = os.path.join(PROJECT_ROOT, 'outputs')
-REPORT_PATH = os.path.join(PROJECT_ROOT, 'PATHOLOGY_EXPERIMENT_REPORT.md')
-DEFAULT_BLOOD_SUMMARY = os.path.join(OUTPUT_DIR, 'training_summary.csv')
-DEFAULT_PRIVACY_SUMMARY = os.path.join(OUTPUT_DIR, 'mia_results_pathology_final_compare.csv')
-DEFAULT_EFFICIENCY_SUMMARY = os.path.join(OUTPUT_DIR, 'pathology_privacy_efficiency_summary_pathology_final_compare.csv')
+CSV_DIR = os.path.join(OUTPUT_DIR, 'csv')
+REPORT_PATH = os.path.join(PROJECT_ROOT, 'docs', 'reports', 'pathmnist_experiment_report.md')
+DEFAULT_BLOOD_SUMMARY = os.path.join(CSV_DIR, 'training_summary.csv')
+DEFAULT_PRIVACY_SUMMARY = os.path.join(CSV_DIR, 'mia_results_pathology_final_compare.csv')
+DEFAULT_EFFICIENCY_SUMMARY = os.path.join(CSV_DIR, 'pathology_privacy_efficiency_summary_pathology_final_compare.csv')
 
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
@@ -134,11 +135,11 @@ def write_report(screening_rows, final_rows, selected_config, blood_rows, privac
         })
 
     lines = [
-        '# HemoSparse Pathology 实验报告',
+        '# MedSparseSNN PathMNIST 实验报告',
         '',
         '## 实验目标',
         '',
-        '验证 BloodMNIST 上表现良好的 HemoSparse 配置迁移到 PathMNIST 时的性能退化来源，并给出可复现的病理图像实验配置。',
+        '验证 BloodMNIST 上表现良好的 MedSparseSNN 配置迁移到 PathMNIST 时的性能退化来源，并给出可复现的病理图像实验配置。',
         '',
         '## 实验设计',
         '',
@@ -190,6 +191,7 @@ def write_report(screening_rows, final_rows, selected_config, blood_rows, privac
         '',
     ]
 
+    os.makedirs(os.path.dirname(REPORT_PATH), exist_ok=True)
     with open(REPORT_PATH, 'w', encoding='utf-8') as handle:
         handle.write('\n'.join(lines))
 
@@ -218,7 +220,7 @@ def main():
         T_value=6,
         output_prefix='pathology_screen_ann_reference',
     )
-    ann_reference = read_csv_rows(os.path.join(OUTPUT_DIR, 'training_summary_pathology_screen_ann_reference.csv'))
+    ann_reference = read_csv_rows(os.path.join(CSV_DIR, 'training_summary_pathology_screen_ann_reference.csv'))
     screening_summaries.append(('ann_reference', ann_reference))
 
     for config in SCREENING_CONFIGS:
@@ -235,7 +237,7 @@ def main():
             T_value=config['timesteps'],
             output_prefix=prefix,
         )
-        summary_path = os.path.join(OUTPUT_DIR, f'training_summary_{prefix}.csv')
+        summary_path = os.path.join(CSV_DIR, f'training_summary_{prefix}.csv')
         screening_summaries.append((config['name'], read_csv_rows(summary_path)))
 
     selected_config = select_best_snn_config(screening_summaries)
@@ -255,13 +257,13 @@ def main():
     )
 
     screening_rows = build_screening_report_rows(screening_summaries)
-    final_rows = read_csv_rows(os.path.join(OUTPUT_DIR, f'training_summary_{final_prefix}.csv'))
+    final_rows = read_csv_rows(os.path.join(CSV_DIR, f'training_summary_{final_prefix}.csv'))
     blood_rows = load_blood_baseline()
     privacy_rows = load_optional_rows(DEFAULT_PRIVACY_SUMMARY)
     efficiency_rows = load_optional_rows(DEFAULT_EFFICIENCY_SUMMARY)
     write_report(screening_rows, final_rows, selected_config, blood_rows, privacy_rows, efficiency_rows, args)
 
-    print(f'Pathology study report written to {REPORT_PATH}')
+    print(f'PathMNIST study report written to {REPORT_PATH}')
 
 
 if __name__ == '__main__':

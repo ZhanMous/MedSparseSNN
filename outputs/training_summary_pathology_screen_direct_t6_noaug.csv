@@ -1,3 +1,0 @@
-dataset,model,encoding,augment,T,epochs,repeats,val_acc,test_acc,training_time,power,latency,params,output_prefix
-pathmnist,SNN,direct,False,6,8,1,90.21 ± 0.00,80.13 ± 0.00,487.23 ± 0.00s,21.97 ± 0.00W,0.14 ± 0.00ms/sample,119527 (0.120M),pathology_screen_direct_t6_noaug
-pathmnist,DenseSNN,direct,False,6,8,1,54.50 ± 0.00,60.00 ± 0.00,335.45 ± 0.00s,17.57 ± 0.00W,0.29 ± 0.00ms/sample,119531 (0.120M),pathology_screen_direct_t6_noaug

@@ -1,4 +1,0 @@
-dataset,model,repeats,test_acc,power_w,latency_ms_per_sample,energy_mj_per_sample,spike_rate,theoretical_macs_saving
-pathmnist,SNN,2,82.33 ± 0.31,23.93 ± 1.14W,0.13 ± 0.00ms/sample,3.16 ± 0.08mJ,0.1582 ± 0.0052,84.18 ± 0.52%
-pathmnist,DenseSNN,2,62.02 ± 0.85,21.88 ± 0.50W,0.23 ± 0.02ms/sample,5.12 ± 0.50mJ,0.2072 ± 0.0074,0.00 ± 0.00%
-pathmnist,ANN,2,85.12 ± 0.40,14.77 ± 0.68W,0.04 ± 0.00ms/sample,0.54 ± 0.02mJ,N/A,0.00 ± 0.00%

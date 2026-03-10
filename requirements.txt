@@ -1,4 +1,4 @@
-# HemoSparse 项目依赖清单
+# MedSparseSNN 项目依赖清单
 # Python >= 3.9
 
 # SpikingJelly 脉冲神经网络框架（PyPI 发布版本号）

@@ -62,8 +62,9 @@ V_THRESHOLD = 1.0
 NUM_SHADOW_MODELS = 5
 NUM_REPEATS = 5
 
-OUTPUT_DIR = 'outputs'
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+OUTPUT_ROOT = 'outputs'
+CSV_DIR = os.path.join(OUTPUT_ROOT, 'csv')
+os.makedirs(CSV_DIR, exist_ok=True)
 
 
 def get_loaders_for_model(model_name, dataset_flag, batch_size, timesteps, encoding, augment, seed=None):
@@ -230,7 +231,7 @@ def summarize_results(all_mia_results, output_prefix, dataset_flag, repeats, num
             t_stat, p_value = t_test(ann_accuracy_values, all_mia_results[model]['accuracy'])
             significance[model] = {'t_stat': t_stat, 'p_value': p_value, 'label': get_significance_label(p_value)}
 
-    detailed_path = os.path.join(OUTPUT_DIR, f'mia_runs_{output_prefix}.csv')
+    detailed_path = os.path.join(CSV_DIR, f'mia_runs_{output_prefix}.csv')
     with open(detailed_path, 'w', newline='') as handle:
         writer = csv.writer(handle)
         writer.writerow(['dataset', 'model', 'repeat', 'epochs', 'shadow_models', 'encoding', 'augment', 'T', 'accuracy', 'auc', 'f1', 'precision', 'recall'])
@@ -252,7 +253,7 @@ def summarize_results(all_mia_results, output_prefix, dataset_flag, repeats, num
                     metrics['recall'][repeat_idx],
                 ])
 
-    summary_path = os.path.join(OUTPUT_DIR, f'mia_results_{output_prefix}.csv')
+    summary_path = os.path.join(CSV_DIR, f'mia_results_{output_prefix}.csv')
     with open(summary_path, 'w', newline='') as handle:
         writer = csv.writer(handle)
         writer.writerow(['dataset', 'model', 'epochs', 'repeats', 'shadow_models', 'encoding', 'augment', 'T', 'accuracy', 'auc', 'f1', 'precision', 'recall', 'significance_vs_ann'])

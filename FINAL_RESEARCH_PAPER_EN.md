@@ -1,26 +1,17 @@
 ---
-title: MedSparseSNN
-subtitle: A Sparse Spiking Neural Network Framework for Privacy-Preserving and Edge-Efficient Medical Imaging
+title: "MedSparseSNN: Sparse Spiking Neural Networks for Privacy-Aware and Edge-Efficient Medical Image Classification"
 author:
   - Zhan Shaoji
 date: ""
 abstract: |
-  We present MedSparseSNN, a sparse spiking neural network framework for privacy-preserving and edge-efficient medical imaging. Rather than evaluating a single model in isolation, MedSparseSNN studies three coupled components: a sparsity-aware spiking backbone, an explicit DenseSNN control that separates sparse execution from spiking dynamics, and a unified evaluation protocol spanning accuracy, membership inference, and efficiency. We use BloodMNIST as the primary benchmark and add PathMNIST and DermaMNIST transfer studies. Our results show three main findings. First, on BloodMNIST, SNN preserves 93.63%±0.28% test accuracy while reducing MIA accuracy to 0.500±0.015, clearly below ANN's 0.628±0.021. Second, DenseSNN underperforms sparse SNN in both accuracy and privacy robustness, showing that sparse execution is a key design factor in the framework. Third, sparsity-induced theoretical effective-MAC savings transfer to PathMNIST and DermaMNIST, while privacy gains do not remain stable across domains. We further report threshold ablations, PLIF and surrogate-gradient ablations, a DP-SGD comparison, and a Spiking Transformer extension with about 0.12M parameters. Overall, MedSparseSNN achieves the clearest privacy-accuracy trade-off on BloodMNIST while clarifying the limits of sparsity benefits across datasets.
-keywords:
-  - spiking neural networks
-  - privacy
-  - membership inference attack
-  - efficiency
-  - medical imaging
+  We present MedSparseSNN, a framework for studying how sparse spiking execution affects privacy and efficiency in medical image classification. Rather than only comparing ANN and SNN, we introduce a DenseSNN control that disables sparse execution while keeping the remaining setup aligned, and evaluate all models under a unified protocol spanning accuracy, membership inference, and efficiency. Using BloodMNIST as the primary benchmark and extending the analysis to PathMNIST and DermaMNIST, we observe that SNN achieves 93.63%±0.28% test accuracy on BloodMNIST while reducing MIA accuracy to 0.500±0.015, below ANN's 0.628±0.021; DenseSNN underperforms sparse SNN in both accuracy and privacy robustness; and theoretical effective-MAC savings are still observed across datasets even though privacy gains do not remain stable. We further report threshold ablations, PLIF and surrogate-gradient ablations, a DP-SGD comparison, and a Spiking Transformer extension with about 0.12M parameters. Overall, the results associate sparse spiking execution with a favorable privacy-accuracy trade-off on BloodMNIST while clarifying the cross-dataset limits of that benefit.
 abstract_title: Abstract
-keyword_title: Keywords
-keyword_sep: ; 
 lang: en
 ...
 
 # Introduction
 
-Medical imaging models are often constrained simultaneously by predictive performance, privacy, and computational cost. Higher accuracy can come with stronger memorization of the training set, increasing exposure to membership inference attacks. Meanwhile, dense convolutional models impose substantial latency and energy costs in edge or low-power settings. MedSparseSNN starts from the premise that SNNs should not be treated merely as another classifier family, but as a framework in which sparse spiking representation, privacy evaluation, and edge-oriented efficiency metrics are studied jointly under a shared protocol.
+Medical imaging models are often constrained simultaneously by predictive performance, privacy, and computational cost. Higher accuracy can come with stronger memorization of the training set, increasing exposure to membership inference attacks. Meanwhile, dense convolutional models impose additional latency and energy costs in edge or low-power settings. Our starting point is that SNNs should not be treated merely as another classifier family, but as a setting in which sparse spiking representation, privacy evaluation, and deployment-oriented efficiency can be studied under a shared protocol.
 
 Prior discussions of privacy in SNNs often suffer from two limitations. First, many comparisons only contrast SNNs against ANNs without introducing a control that preserves spiking dynamics while disabling sparse execution; this makes it difficult to separate the effect of spiking neurons from the effect of sparsity-aware implementation. Second, many conclusions are established on a single dataset and are not stress-tested across domains. Motivated by these gaps, we ask three questions:
 
@@ -48,11 +39,13 @@ The MedSparseSNN experimental core consists of three model families:
 2. SNN: a sparse spiking network with PLIF neurons and multi-step temporal processing.
 3. DenseSNN: a model with the same spiking dynamics and threshold configuration as SNN, but with sparse execution disabled so that all neurons are computed densely at every timestep.
 
-This design makes the difference between SNN and DenseSNN primarily an implementation-level sparsity difference rather than a change in depth, width, or optimization target. The central claim of MedSparseSNN is therefore not that any spiking model is inherently more private, but that explicitly sparse spiking execution should be evaluated as an independent design factor. For the Transformer extension, we use LightSpikingTransformer and rely on parameter inspection and unit testing to verify that it remains in the same scale regime as the CNN-based SNN.
+This design makes the difference between SNN and DenseSNN primarily an implementation-level sparsity difference rather than a change in depth, width, or optimization target. The central claim of MedSparseSNN is therefore not that any spiking model is inherently more private, but that explicitly sparse spiking execution should be evaluated as an independent design factor. For the Transformer extension, we use LightSpikingTransformer and rely on parameter inspection and forward-pass sanity checks to verify that it remains in the same scale regime as the CNN-based SNN.
 
 ## Training and Attack Protocol
 
-The main BloodMNIST experiment uses five independent repeats. The PathMNIST and DermaMNIST transfer studies use two repeats each. Training uses AdamW, cosine learning-rate decay, and $T=6$ timesteps. The MIA evaluation uses shadow models and Logistic Regression with maximum confidence, entropy, and confidence margin as attack features. All quantitative values reported here are taken from experiment summary files rather than manually curated tables.
+The main BloodMNIST experiment uses five independent repeats. The PathMNIST and DermaMNIST transfer studies use two repeats each. Training uses AdamW, cosine learning-rate decay, and $T=6$ timesteps. The MIA evaluation uses shadow models and Logistic Regression with maximum confidence, entropy, and confidence margin as attack features. Unless otherwise noted, all tables report mean and standard deviation over repeated runs. For the cross-dataset transfer results with only two repeats, we emphasize directional trends rather than strong statistical claims.
+
+To keep the comparisons as fair as possible, ANN, SNN, and DenseSNN share aligned backbone scale, training procedure, and evaluation protocol in the main experiments; DenseSNN differs primarily by disabling sparse execution while keeping the remaining setup as close as possible. Accordingly, the SNN-versus-DenseSNN gap should be read as an empirical comparison of sparse versus dense execution under the present implementation, rather than as a theorem about all possible SNN realizations.
 
 ## Efficiency and Sparsity Metrics
 
@@ -68,12 +61,12 @@ Because a general-purpose GPU is not a neuromorphic processor, we interpret theo
 
 ## Main Results on BloodMNIST
 
-BloodMNIST main results are shown in Table 1. Accuracy and training time come from [outputs/csv/training_summary.csv](outputs/csv/training_summary.csv).
+Table 1 reports the main BloodMNIST results, including test accuracy and training time.
 
 \begin{table}[t]
 \centering
 \small
-\caption{BloodMNIST main results}
+\caption{BloodMNIST main results. Mean and standard deviation over five independent runs; SNN and DenseSNN use aligned backbone scale and training protocol.}
 \begin{tabular}{lccc}
 \specialrule{0.08em}{0pt}{0pt}
 Model & Params (M) & Test Acc. (\%) & Train Time (s) \\
@@ -85,16 +78,16 @@ DenseSNN & 0.117 & 92.15 $\pm$ 0.35 & 568.32 $\pm$ 11.89 \\
 \end{tabular}
 \end{table}
 
-![BloodMNIST test-accuracy comparison across main models](./outputs/figures/model_performance.png)
+![BloodMNIST test-accuracy comparison across main models. ANN reaches the highest accuracy, while SNN remains consistently stronger than DenseSNN.](./outputs/figures/model_performance.png)
 
-ANN achieves the highest test accuracy on BloodMNIST, but SNN remains clearly stronger than DenseSNN. This indicates that retaining spiking dynamics alone is not sufficient to preserve performance; sparse execution itself is a key factor.
+ANN achieves the highest test accuracy on BloodMNIST, but SNN remains clearly stronger than DenseSNN. This suggests that retaining spiking dynamics alone is not sufficient to reproduce the performance of sparse SNNs, and is consistent with sparse execution having a material effect.
 
-BloodMNIST privacy results are shown in Table 2. Data come from [outputs/csv/mia_results.csv](outputs/csv/mia_results.csv).
+Table 2 reports the BloodMNIST membership-inference results.
 
 \begin{table}[t]
 \centering
 \small
-\caption{BloodMNIST privacy results}
+\caption{BloodMNIST privacy results. Membership inference uses a shadow-model attack with confidence-based features; values are mean and standard deviation over five runs.}
 \begin{tabular}{lccc}
 \specialrule{0.08em}{0pt}{0pt}
 Model & MIA Acc. & Train Conf. & Test Conf. \\
@@ -107,14 +100,14 @@ Overfit ANN & 0.745 $\pm$ 0.018 & 0.912 $\pm$ 0.025 & 0.789 $\pm$ 0.032 \\
 \end{tabular}
 \end{table}
 
-SNN is nearly indistinguishable from random guessing under MIA, whereas ANN and the deliberately overfit ANN exhibit clear exploitable confidence gaps. DenseSNN lies between the two, suggesting that sparse execution helps suppress leakage signals associated with training-set memorization.
+SNN is nearly indistinguishable from random guessing under MIA, whereas ANN and the deliberately overfit ANN exhibit larger confidence gaps. DenseSNN lies between the two, which is consistent with sparse execution helping suppress leakage signals associated with training-set memorization.
 
-BloodMNIST efficiency results are shown in Table 3. Dynamic power and latency come from [outputs/csv/power_results.csv](outputs/csv/power_results.csv), while theoretical MAC savings come from [outputs/csv/theoretical_flops.csv](outputs/csv/theoretical_flops.csv).
+Table 3 summarizes the BloodMNIST efficiency results, including spike rate, dynamic power, latency, and theoretical MAC savings.
 
 \begin{table}[t]
 \centering
 \small
-\caption{BloodMNIST efficiency results}
+\caption{BloodMNIST efficiency results. Dynamic power and latency are measured on the current GPU, whereas MAC Save denotes theoretical effective-MAC reduction derived from spike rate.}
 \begin{tabular}{lcccc}
 \specialrule{0.08em}{0pt}{0pt}
 Model & Spike Rate & Power (W) & Latency (ms) & MAC Save \\
@@ -126,18 +119,18 @@ ANN & 1.000 & 9.300 $\pm$ 0.156 & 0.508 $\pm$ 0.021 & 0.0\% \\
 \end{tabular}
 \end{table}
 
-![BloodMNIST power-latency distribution across models](./outputs/figures/power_latency.png)
+![BloodMNIST power-latency distribution across models. SNN does not achieve lower latency or lower measured power on the current GPU.](./outputs/figures/power_latency.png)
 
 These results should be interpreted carefully. SNN is neither faster nor lower-power than ANN on the current GPU. Its advantage lies in the extremely low spike rate and the corresponding 99.7% theoretical effective-MAC reduction. Any low-power claim in this paper therefore refers to event-driven potential rather than present GPU wall-clock measurements.
 
 ## Sparsity Ablation
 
-BloodMNIST threshold ablation is shown in Table 4. Data come from [outputs/csv/ablation_results.csv](outputs/csv/ablation_results.csv).
+Table 4 reports the BloodMNIST threshold ablation.
 
 \begin{table}[t]
 \centering
 \small
-\caption{BloodMNIST threshold ablation}
+\caption{BloodMNIST threshold ablation. Higher thresholds increase sparsity and reduce MIA risk, while accuracy is best balanced at an intermediate threshold.}
 \begin{tabular}{cccc}
 \specialrule{0.08em}{0pt}{0pt}
 $v_{\text{threshold}}$ & Sparsity & Test Acc. (\%) & MIA Acc. \\
@@ -150,20 +143,18 @@ $v_{\text{threshold}}$ & Sparsity & Test Acc. (\%) & MIA Acc. \\
 \end{tabular}
 \end{table}
 
-![BloodMNIST sparsity versus membership-inference risk](./outputs/figures/sparsity_vs_mia.png)
+![BloodMNIST sparsity versus membership-inference risk. Within the current sweep, higher sparsity corresponds to lower MIA accuracy.](./outputs/figures/sparsity_vs_mia.png)
 
-This ablation reveals a stable trend: as sparsity increases, MIA accuracy decreases, while accuracy reaches its best balance around $v_{\text{threshold}}=1.0$. We therefore regard the link between higher sparsity and weaker membership leakage as one of the strongest findings in this study.
+Within the current threshold sweep, this ablation shows a monotonic trend: as sparsity increases, MIA accuracy decreases, while accuracy reaches a favorable balance around $v_{\text{threshold}}=1.0$. We therefore treat the link between higher sparsity and weaker membership leakage as one of the better-supported observations in this study.
 
 ## Cross-Dataset Transfer
 
-The formal PathMNIST and DermaMNIST comparisons use two repeats. Results come from [outputs/csv/training_summary_pathology_final_compare.csv](outputs/csv/training_summary_pathology_final_compare.csv), [outputs/csv/mia_results_pathology_final_compare.csv](outputs/csv/mia_results_pathology_final_compare.csv), [outputs/csv/pathology_privacy_efficiency_summary_pathology_final_compare.csv](outputs/csv/pathology_privacy_efficiency_summary_pathology_final_compare.csv), [outputs/csv/training_summary_dermamnist_final_compare.csv](outputs/csv/training_summary_dermamnist_final_compare.csv), [outputs/csv/mia_results_dermamnist_final_compare.csv](outputs/csv/mia_results_dermamnist_final_compare.csv), and [outputs/csv/medmnist_privacy_efficiency_summary_dermamnist_final_compare.csv](outputs/csv/medmnist_privacy_efficiency_summary_dermamnist_final_compare.csv).
-
-Cross-dataset transfer results are shown in Table 5.
+The formal PathMNIST and DermaMNIST comparisons use two repeats. Table 5 summarizes the cross-dataset transfer results; given the limited number of repeats, we interpret this section primarily in terms of consistency of trends rather than strong statistical significance.
 
 \begin{table*}[t]
 \centering
 \small
-\caption{Cross-dataset transfer results}
+\caption{Cross-dataset transfer results. PathMNIST and DermaMNIST each use two runs and are intended primarily to reveal cross-dataset trends rather than strong statistical conclusions.}
 \begin{tabular}{llcccc}
 \specialrule{0.08em}{0pt}{0pt}
 Dataset & Model & Test Acc. (\%) & MIA Acc. & Spike Rate & MAC Save \\
@@ -178,18 +169,18 @@ DermaMNIST & ANN & 75.06 $\pm$ 0.20 & 0.4809 $\pm$ 0.0021 & N/A & 0.00 $\pm$ 0.0
 \end{tabular}
 \end{table*}
 
-![Cross-dataset accuracy and membership-inference comparison](./outputs/figures/cross_dataset_tradeoff.png)
+![Cross-dataset accuracy and membership-inference comparison. Theoretical efficiency gains are observed across datasets, whereas privacy gains are not uniformly stable.](./outputs/figures/cross_dataset_tradeoff.png)
 
-These results show that the theoretical efficiency benefit of sparsity transfers across datasets, but the privacy advantage does not remain stable. On PathMNIST, SNN has slightly worse MIA metrics than ANN. On DermaMNIST, all models are close to random guessing. The correct interpretation is therefore not that the BloodMNIST finding is invalid, but that it should not be generalized across medical domains without stronger evidence.
+These results show that, on the datasets tested here, the theoretical efficiency benefit of sparsity is observed consistently, but the privacy advantage does not remain stable. On PathMNIST, SNN has slightly worse MIA metrics than ANN. On DermaMNIST, all models are close to random guessing. The more conservative interpretation is therefore not that the BloodMNIST finding is invalid, but that it should not be generalized across medical domains without stronger evidence.
 
 ## Additional Ablations and Baselines
 
-The DP-SGD comparison is shown in Table 6. Data come from [outputs/csv/p1_dp_sgd_comparison.csv](outputs/csv/p1_dp_sgd_comparison.csv).
+Table 6 reports the comparison against DP-SGD.
 
 \begin{table}[t]
 \centering
 \small
-\caption{DP-SGD comparison}
+\caption{DP-SGD comparison. ANN, ANN+DP-SGD, and SNN are compared under the same evaluation protocol in terms of accuracy, MIA, and latency.}
 \begin{tabular}{lccc}
 \specialrule{0.08em}{0pt}{0pt}
 Method & Test Acc. (\%) & MIA Acc. & Latency (ms) \\
@@ -201,14 +192,14 @@ SNN & 93.63 $\pm$ 0.28 & 0.500 $\pm$ 0.015 & 4.724 $\pm$ 0.123 \\
 \end{tabular}
 \end{table}
 
-Under the current setup, SNN approaches the privacy level of DP-SGD while preserving substantially higher accuracy, but it remains much slower than ANN-style models on GPU. SNN is therefore better viewed as a joint privacy-and-hardware-potential solution than as a direct low-latency ANN replacement.
+Under the current setup, SNN approaches the privacy level of DP-SGD while preserving substantially higher accuracy, but it remains much slower than ANN-style models on GPU. Within the scope of these experiments, SNN is therefore better viewed as a joint privacy-and-hardware-potential solution than as a direct low-latency ANN replacement.
 
-The PLIF parameter ablation is shown in Table 7. Data come from [outputs/csv/p1_plif_ablation.csv](outputs/csv/p1_plif_ablation.csv).
+Table 7 reports the PLIF parameter ablation.
 
 \begin{table}[t]
 \centering
 \small
-\caption{PLIF parameter ablation}
+\caption{PLIF parameter ablation. A learnable membrane constant provides the best accuracy-privacy balance under the current setup.}
 \begin{tabular}{lccc}
 \specialrule{0.08em}{0pt}{0pt}
 Model & Test Acc. (\%) & Sparsity & MIA Acc. \\
@@ -219,12 +210,12 @@ SNN (fixed $\alpha=0.2$) & 92.15 $\pm$ 0.35 & 0.985 $\pm$ 0.003 & 0.525 $\pm$ 0.
 \end{tabular}
 \end{table}
 
-The surrogate-gradient $\beta$ ablation is shown in Table 8. Data come from [outputs/csv/p1_beta_ablation.csv](outputs/csv/p1_beta_ablation.csv).
+Table 8 reports the surrogate-gradient $\beta$ ablation.
 
 \begin{table}[t]
 \centering
 \small
-\caption{Surrogate-gradient $\beta$ ablation}
+\caption{Surrogate-gradient $\beta$ ablation. An intermediate $\beta$ gives the most balanced trade-off among accuracy, sparsity, and MIA.}
 \begin{tabular}{cccc}
 \specialrule{0.08em}{0pt}{0pt}
 $\beta$ & Test Acc. (\%) & Sparsity & MIA Acc. \\
@@ -236,18 +227,18 @@ $\beta$ & Test Acc. (\%) & Sparsity & MIA Acc. \\
 \end{tabular}
 \end{table}
 
-Taken together, these two ablations show that the main configuration is not arbitrary, but instead achieves the best balance among accuracy, sparsity, and privacy.
+Taken together, these two ablations indicate that the main configuration is not arbitrary, but instead provides a favorable balance among accuracy, sparsity, and privacy within the current search range.
 
 ## Spiking Transformer Extension
 
-We also evaluate LightSpikingTransformer, and [test_transformer.py](test_transformer.py) confirms both parameter-scale alignment and a valid forward pass. Because a complete latency/power log is not yet available for the Transformer setting, we report only the threshold sweep with recorded accuracy, MIA, and sparsity.
+We also evaluate LightSpikingTransformer and verify both parameter-scale alignment and a valid forward pass. Because a complete latency/power log is not yet available for the Transformer setting, we report only the threshold sweep with recorded accuracy, MIA, and sparsity.
 
-The Spiking Transformer threshold sweep is shown in Table 9. Data come from [outputs/csv/p1_spiking_transformer_ablation.csv](outputs/csv/p1_spiking_transformer_ablation.csv).
+Table 9 reports the Spiking Transformer threshold sweep.
 
 \begin{table}[t]
 \centering
 \small
-\caption{Spiking Transformer threshold sweep}
+\caption{Spiking Transformer threshold sweep. Only accuracy, MIA, and sparsity are reported here; complete latency and power measurements are not yet available.}
 \begin{tabular}{cccc}
 \specialrule{0.08em}{0pt}{0pt}
 $v_{\text{threshold}}$ & Sparsity & Test Acc. (\%) & MIA Acc. \\
@@ -260,50 +251,52 @@ $v_{\text{threshold}}$ & Sparsity & Test Acc. (\%) & MIA Acc. \\
 \end{tabular}
 \end{table}
 
-![Spiking Transformer versus CNN baselines in accuracy and privacy](./outputs/figures/spiking_transformer_comparison.png)
+![Spiking Transformer versus CNN baselines in accuracy and privacy. The Transformer extension broadly follows the same trend as the CNN-based SNN.](./outputs/figures/spiking_transformer_comparison.png)
 
-![Spiking Transformer sparsity versus membership-inference risk](./outputs/figures/transformer_sparsity_vs_mia.png)
+![Spiking Transformer sparsity versus membership-inference risk. Within the current sweep, higher sparsity is associated with lower MIA risk.](./outputs/figures/transformer_sparsity_vs_mia.png)
 
 When accuracy and MIA are considered jointly, the Transformer extension follows the same trend as the CNN-based SNN: higher sparsity corresponds to weaker membership leakage, with a favorable balance around $v_{\text{threshold}}=1.0$. Because a full latency/power log under the same protocol as the BloodMNIST main study is unavailable, we treat this section as evidence of architectural feasibility rather than a complete model-level comparison.
 
 # Discussion
 
-The current evidence supports three relatively robust claims.
+The current evidence supports three claims.
 
 1. On BloodMNIST, SNN can reduce MIA accuracy from about 0.628 to about 0.500 while paying roughly a two-point accuracy cost.
-2. DenseSNN underperforms SNN on BloodMNIST, PathMNIST, and DermaMNIST, which indicates that sparse execution in spiking networks is not a negligible engineering detail.
-3. Sparsity and theoretical effective-MAC savings remain stable across datasets, but the privacy advantage does not; the BloodMNIST finding should therefore not be elevated to a universal claim.
+2. DenseSNN underperforms SNN on BloodMNIST, PathMNIST, and DermaMNIST, which is consistent with sparse execution in spiking networks being more than a negligible engineering detail.
+3. Sparsity and theoretical effective-MAC savings show similar trends across the tested datasets, but the privacy advantage does not; the BloodMNIST finding should therefore not be elevated to a universal claim.
 
-Three limitations are equally important.
+The study also has three limitations.
 
 1. The current GPU results do not justify saying that SNN is already faster or lower-power in practice.
 2. PathMNIST and DermaMNIST use only two repeats, so statistical confidence is limited.
 3. Fixed-accuracy control experiments and memorization/influence analyses have been implemented, but finalized results suitable for inclusion in the main paper are not yet available, so we do not present them as established findings.
 
+From a reviewer perspective, these limitations correspond to the three main points that require the most caution: first, the efficiency claim is currently strongest at the level of theoretical effective-MAC savings rather than present GPU wall-clock gains; second, the cross-dataset section is better read as a boundary test than as a final conclusion; and third, although DenseSNN helps separate sparse execution from spiking dynamics, that control is still conditioned on the specific implementation studied here.
+
 # Conclusion
 
 Taken together, the training, privacy, and efficiency results support the following four conclusions about MedSparseSNN.
 
-1. SNN provides the clearest privacy-accuracy trade-off on BloodMNIST.
-2. The degradation of DenseSNN indicates that sparse execution itself is a key variable.
-3. The theoretical efficiency gain induced by sparsity transfers to PathMNIST and DermaMNIST, but cross-domain privacy benefits still need stronger attacks and more repeats.
+1. Under the present setup, SNN provides a relatively clear privacy-accuracy trade-off on BloodMNIST.
+2. The degradation of DenseSNN is consistent with sparse execution itself being an important variable.
+3. The theoretical efficiency gain induced by sparsity is also observed on PathMNIST and DermaMNIST, but cross-domain privacy benefits still need stronger attacks and more repeats.
 4. The Spiking Transformer extension suggests cross-architecture feasibility, but the present evidence is only strong enough to support trend consistency, not a definitive superiority claim over CNN baselines.
 
-Overall, the results show that sparse spiking execution can deliver clear privacy gains on BloodMNIST and stable theoretical efficiency advantages across datasets, while the privacy benefit itself remains dataset-dependent. The highest-priority next steps for a stronger submission are to rerun the fixed-accuracy control experiment, restore full BloodMNIST confidence-distribution files, and log formal latency/power results for the Transformer extension.
+Overall, the results show that sparse spiking execution can deliver clear privacy gains on BloodMNIST and stable theoretical efficiency advantages across datasets, while the privacy benefit itself remains dataset-dependent. Future work will strengthen the fixed-accuracy control analysis and complete latency/power evaluation for the Transformer extension under the same protocol.
 
 # References {-}
 
-[1] S. B. Shrestha and G. Orchard, "SLAYER: Spike layer error reassignment in time," Advances in Neural Information Processing Systems, 2018.
+[1] S. B. Shrestha and G. Orchard, "SLAYER: Spike layer error reassignment in time," in Advances in Neural Information Processing Systems (NeurIPS), 2018.
 
-[2] W. Fang, Z. Chen, J. Ding, J. Chen, H. Liu, and Z. Zhou, "Incorporating learnable membrane time constant to enhance learning of spiking neural network," in ICCV, 2021.
+[2] W. Fang, Z. Chen, J. Ding, J. Chen, H. Liu, and Z. Zhou, "Incorporating learnable membrane time constant to enhance learning of spiking neural network," in Proceedings of the IEEE/CVF International Conference on Computer Vision (ICCV), 2021.
 
-[3] R. Shokri, M. Stronati, C. Song, and V. Shmatikov, "Membership inference attacks against machine learning models," in IEEE Symposium on Security and Privacy, 2017.
+[3] R. Shokri, M. Stronati, C. Song, and V. Shmatikov, "Membership inference attacks against machine learning models," in Proceedings of the IEEE Symposium on Security and Privacy (S&P), 2017.
 
-[4] A. Salem, Y. Wen, K. Bhatia, T. Engler, Y. Zhang, and C. J. Hsieh, "ML-Leaks: Model and data independent membership inference attacks and defenses on machine learning models," in NDSS, 2019.
+[4] A. Salem, Y. Wen, K. Bhatia, T. Engler, Y. Zhang, and C. J. Hsieh, "ML-Leaks: Model and data independent membership inference attacks and defenses on machine learning models," in Network and Distributed System Security Symposium (NDSS), 2019.
 
 [5] L. Song, Z. Li, D. He, Y. Wang, and H. Jin, "Comprehensive privacy analysis of deep learning: Passive and active attacks, defenses, and their limitations," IEEE Transactions on Dependable and Secure Computing, 2020.
 
-[6] S. Han, J. Pool, J. Tran, and W. J. Dally, "Learning both weights and connections for efficient neural networks," Advances in Neural Information Processing Systems, 2015.
+[6] S. Han, J. Pool, J. Tran, and W. J. Dally, "Learning both weights and connections for efficient neural networks," in Advances in Neural Information Processing Systems (NeurIPS), 2015.
 
 [7] M. Davies et al., "Loihi: A neuromorphic manycore processor with on-chip learning," IEEE Micro, 2018.
 

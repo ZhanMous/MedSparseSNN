@@ -1,0 +1,132 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[a4paper,left=2.4cm,right=2.4cm,top=2.6cm,bottom=2.6cm]{geometry}
+\usepackage{fontspec}
+\usepackage{xeCJK}
+\usepackage{xcolor}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs,longtable,array,calc}
+\usepackage{multirow}
+\usepackage{caption}
+\usepackage{adjustbox}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{microtype}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage{etoolbox}
+\usepackage{footnote}
+\usepackage{abstract}
+\usepackage{indentfirst}
+\usepackage[section]{placeins}
+
+\defaultfontfeatures{Ligatures=TeX,Scale=MatchLowercase}
+\setmainfont{TeX Gyre Termes}
+\setsansfont{TeX Gyre Heros}
+\setmonofont{TeX Gyre Cursor}
+\setCJKmainfont{Noto Serif CJK SC}
+\setCJKsansfont{Noto Sans CJK SC}
+\setCJKmonofont{Noto Sans Mono CJK SC}
+
+\hypersetup{
+  hidelinks,
+  colorlinks=false,
+  pdfcreator={LaTeX via pandoc}
+}
+
+\linespread{1.32}
+\setlength{\parindent}{2em}
+\setlength{\parskip}{0pt}
+\setlength{\emergencystretch}{2em}
+\renewcommand{\arraystretch}{1.15}
+\setlength{\tabcolsep}{4.5pt}
+\setlength{\abovecaptionskip}{6pt}
+\setlength{\belowcaptionskip}{2pt}
+\setlength{\textfloatsep}{12pt plus 2pt minus 2pt}
+\setlength{\floatsep}{10pt plus 2pt minus 2pt}
+\setlength{\intextsep}{10pt plus 2pt minus 2pt}
+\setcounter{topnumber}{2}
+\renewcommand{\topfraction}{0.85}
+\renewcommand{\textfraction}{0.12}
+\renewcommand{\floatpagefraction}{0.75}
+\setlist[itemize]{leftmargin=2em,itemsep=3pt,topsep=4pt}
+\setlist[enumerate]{leftmargin=2.2em,itemsep=3pt,topsep=4pt}
+
+\captionsetup{font=small,labelfont=bf}
+\captionsetup[figure]{justification=centering,singlelinecheck=false}
+\captionsetup[table]{font=small,labelfont=bf,justification=centering,singlelinecheck=false}
+\renewcommand{\figurename}{图}
+\renewcommand{\tablename}{表}
+
+\titleformat{\section}{\centering\bfseries\fontsize{15}{20}\selectfont}{\thesection}{0.6em}{}
+\titleformat{\subsection}{\bfseries\fontsize{13}{18}\selectfont}{\thesubsection}{0.6em}{}
+\titleformat{\subsubsection}{\bfseries\normalsize}{\thesubsubsection}{0.6em}{}
+\titlespacing*{\section}{0pt}{1.6ex plus 0.4ex minus 0.2ex}{1.0ex}
+\titlespacing*{\subsection}{0pt}{1.2ex plus 0.3ex minus 0.2ex}{0.6ex}
+\titlespacing*{\subsubsection}{0pt}{1.0ex plus 0.2ex minus 0.1ex}{0.4ex}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0pt}
+
+\makeatletter
+\def\fps@figure{htbp}
+\def\fps@table{htbp}
+\patchcmd\longtable{\par}{\if@noskipsec\mbox{}\fi\par}{}{}
+\newsavebox\pandoc@box
+\newcommand*\pandocbounded[1]{%
+  \sbox\pandoc@box{#1}%
+  \Gscale@div\@tempa{\textheight}{\dimexpr\ht\pandoc@box+\dp\pandoc@box\relax}%
+  \Gscale@div\@tempb{\linewidth}{\wd\pandoc@box}%
+  \ifdim\@tempb\p@<\@tempa\p@\let\@tempa\@tempb\fi
+  \ifdim\@tempa\p@<\p@\scalebox{\@tempa}{\usebox\pandoc@box}%
+  \else\usebox{\pandoc@box}%
+  \fi}
+\makeatother
+\makesavenoteenv{longtable}
+
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+
+\newcommand{\cnmaintitle}[1]{{\fontsize{20}{28}\selectfont\bfseries #1\par}}
+\newcommand{\cnsubtitle}[1]{\vspace{0.45em}{\large #1\par}}
+\newcommand{\cnkeywords}[2]{\par\vspace{0.5em}\noindent\textbf{#1：}#2\par}
+\renewcommand{\abstractname}{$if(abstract_title)$$abstract_title$$else$摘要$endif$}
+\renewcommand{\abstractnamefont}{\normalsize\bfseries}
+\renewcommand{\abstracttextfont}{\normalsize}
+
+\begin{document}
+
+\begin{center}
+$if(subtitle)$
+  \cnmaintitle{$subtitle$}
+  \cnsubtitle{$title$}
+$else$
+  \cnmaintitle{$title$}
+$endif$
+  \vspace{0.8em}
+$for(author)$
+  {\normalsize $author$\par}
+$endfor$
+\end{center}
+
+$if(abstract)$
+\vspace{0.8em}
+\begin{center}
+{\normalsize\bfseries $if(abstract_title)$$abstract_title$$else$摘要$endif$}
+\end{center}
+\noindent $abstract$
+$endif$
+
+$if(keywords)$
+\cnkeywords{$if(keyword_title)$$keyword_title$$else$关键词$endif$}{$for(keywords)$$keywords$$sep$$if(keyword_sep)$$keyword_sep$$else$；$endif$$endfor$}
+$endif$
+
+\vspace{0.8em}
+
+$body$
+
+\end{document}

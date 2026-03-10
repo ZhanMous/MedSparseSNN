@@ -1,6 +1,6 @@
 \documentclass[10pt,twocolumn,letterpaper]{article}
 
-\usepackage[letterpaper,left=0.75in,right=0.75in,top=1.0in,bottom=1.0in,columnsep=0.3in]{geometry}
+\usepackage[letterpaper,textwidth=5.5in,textheight=9in,top=1in,headheight=12pt,headsep=25pt,footskip=30pt,columnsep=0.25in]{geometry}
 \usepackage{fontspec}
 \usepackage{xeCJK}
 \usepackage{xcolor}
@@ -9,6 +9,7 @@
 \usepackage{booktabs,longtable,array,calc}
 \usepackage{multirow}
 \usepackage{caption}
+\usepackage{adjustbox}
 \usepackage{enumitem}
 \usepackage{titlesec}
 \usepackage{fancyhdr}
@@ -18,6 +19,8 @@
 \usepackage{etoolbox}
 \usepackage{footnote}
 \usepackage{abstract}
+\usepackage{indentfirst}
+\usepackage[section]{placeins}
 
 \defaultfontfeatures{Ligatures=TeX,Scale=MatchLowercase}
 \setmainfont{TeX Gyre Termes}
@@ -33,32 +36,70 @@
   pdfcreator={LaTeX via pandoc}
 }
 
-\setlength{\parindent}{1em}
-\setlength{\parskip}{0.15em}
-\setlength{\columnsep}{0.3in}
-\setlength{\emergencystretch}{2em}
-\renewcommand{\arraystretch}{1.08}
-\captionsetup{font=small,labelfont=bf}
-\setlist[itemize]{leftmargin=1.5em,itemsep=0.15em,topsep=0.2em}
-\setlist[enumerate]{leftmargin=1.5em,itemsep=0.15em,topsep=0.2em}
-\setlength{\abovecaptionskip}{4pt}
-\setlength{\belowcaptionskip}{0pt}
-\setlength{\textfloatsep}{10pt plus 2pt minus 2pt}
-\setlength{\floatsep}{8pt plus 2pt minus 2pt}
-
-\titleformat{\section}{\large\bfseries}{\thesection.}{0.5em}{}
-\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{0.5em}{}
-\titleformat{\subsubsection}{\normalsize\itshape}{\thesubsubsection}{0.5em}{}
-\titlespacing*{\section}{0pt}{1.0ex plus 0.3ex minus 0.2ex}{0.5ex}
-\titlespacing*{\subsection}{0pt}{0.8ex plus 0.3ex minus 0.2ex}{0.35ex}
-\titlespacing*{\subsubsection}{0pt}{0.6ex plus 0.2ex minus 0.1ex}{0.25ex}
-
-\pagestyle{fancy}
-\fancyhf{}
-\fancyfoot[C]{\thepage}
-\renewcommand{\headrulewidth}{0pt}
+\widowpenalty=10000
+\clubpenalty=10000
+\flushbottom
+\sloppy
 
 \makeatletter
+\renewcommand{\normalsize}{%
+  \@setfontsize\normalsize\@xpt\@xipt
+  \abovedisplayskip      7\p@ \@plus 2\p@ \@minus 5\p@
+  \abovedisplayshortskip \z@ \@plus 3\p@
+  \belowdisplayskip      \abovedisplayskip
+  \belowdisplayshortskip 4\p@ \@plus 3\p@ \@minus 3\p@
+}
+\normalsize
+\renewcommand{\small}{%
+  \@setfontsize\small\@ixpt\@xpt
+  \abovedisplayskip      6\p@ \@plus 1.5\p@ \@minus 4\p@
+  \abovedisplayshortskip \z@ \@plus 2\p@
+  \belowdisplayskip      \abovedisplayskip
+  \belowdisplayshortskip 3\p@ \@plus 2\p@ \@minus 2\p@
+}
+\renewcommand{\footnotesize}{\@setfontsize\footnotesize\@ixpt\@xpt}
+\renewcommand{\large}{\@setfontsize\large\@xiipt{14}}
+\renewcommand{\Large}{\@setfontsize\Large\@xivpt{16}}
+\renewcommand{\LARGE}{\@setfontsize\LARGE\@xviipt{20}}
+\makeatother
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{5.5pt}
+\setlength{\columnsep}{0.25in}
+\setlength{\emergencystretch}{2em}
+\renewcommand{\arraystretch}{1.08}
+\setlength{\tabcolsep}{3.5pt}
+\captionsetup{font=small,labelfont=bf}
+\captionsetup[figure]{font=footnotesize,labelfont=bf,justification=raggedright,singlelinecheck=false}
+\captionsetup[table]{font=footnotesize,labelfont=bf,justification=raggedright,singlelinecheck=false}
+\setlist[itemize]{leftmargin=3pc,itemsep=2pt,topsep=4pt,parsep=2pt,partopsep=1pt}
+\setlist[enumerate]{leftmargin=3pc,itemsep=2pt,topsep=4pt,parsep=2pt,partopsep=1pt}
+\setlength{\abovecaptionskip}{4pt}
+\setlength{\belowcaptionskip}{0pt}
+\setlength{\textfloatsep}{9pt plus 2pt minus 2pt}
+\setlength{\floatsep}{8pt plus 2pt minus 2pt}
+\setlength{\intextsep}{8pt plus 2pt minus 2pt}
+\setcounter{topnumber}{3}
+\setcounter{dbltopnumber}{2}
+\renewcommand{\topfraction}{0.85}
+\renewcommand{\dbltopfraction}{0.85}
+\renewcommand{\bottomfraction}{0.4}
+\renewcommand{\textfraction}{0.1}
+\renewcommand{\floatpagefraction}{0.7}
+\renewcommand{\dblfloatpagefraction}{0.7}
+
+\titleformat{\section}{\large\bfseries\raggedright}{\thesection}{0.5em}{}
+\titleformat{\subsection}{\normalsize\bfseries\raggedright}{\thesubsection}{0.5em}{}
+\titleformat{\subsubsection}{\normalsize\bfseries\raggedright}{\thesubsubsection}{0.5em}{}
+\titlespacing*{\section}{0pt}{-2.0ex plus -0.5ex minus -0.2ex}{1.5ex plus 0.3ex minus 0.2ex}
+\titlespacing*{\subsection}{0pt}{-1.8ex plus -0.5ex minus -0.2ex}{0.8ex plus 0.2ex}
+\titlespacing*{\subsubsection}{0pt}{-1.5ex plus -0.5ex minus -0.2ex}{0.5ex plus 0.2ex}
+
+\pagestyle{plain}
+
+\makeatletter
+\def\fps@figure{htbp}
+\def\fps@table{htbp}
 \patchcmd\longtable{\par}{\if@noskipsec\mbox{}\fi\par}{}{}
 \newsavebox\pandoc@box
 \newcommand*\pandocbounded[1]{%
@@ -75,38 +116,43 @@
 \providecommand{\tightlist}{%
   \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
 
-\newcommand{\papersubtitle}[1]{\par\vspace{0.35em}{\large #1\par}}
-\newcommand{\paperkeywords}[2]{\par\vspace{0.6em}\noindent\textbf{#1:} #2\par}
+\newcommand{\papersubtitle}[1]{\par\vspace{0.15in}{\LARGE\bfseries #1\par}}
+\newcommand{\paperkeywords}[2]{\par\vspace{0.45em}\noindent\textbf{#1:} #2\par}
+\newcommand{\toptitlebar}{\hrule height 4pt\vspace{0.25in}}
+\newcommand{\bottomtitlebar}{\vspace{0.29in}\hrule height 1pt\vspace{0.09in}}
 \renewcommand{\abstractname}{$if(abstract_title)$$abstract_title$$else$Abstract$endif$}
-\renewcommand{\abstractnamefont}{\normalfont\bfseries}
-\renewcommand{\abstracttextfont}{\small}
+\renewcommand{\abstractnamefont}{\large\bfseries}
+\renewcommand{\abstracttextfont}{\normalsize}
 
 \begin{document}
 
 \twocolumn[
 \begin{@twocolumnfalse}
+\toptitlebar
 \begin{center}
-  {\LARGE\bfseries $title$\par}
+  {{\fontsize{17}{20}\selectfont\bfseries $title$\par}}
 $if(subtitle)$
   \papersubtitle{$subtitle$}
 $endif$
-  \vspace{0.45em}
+  \vspace{0.25in}
 $for(author)$
-  {\normalsize $author$\par}
+  {\normalsize\bfseries $author$\par}
 $endfor$
 \end{center}
 
+\bottomtitlebar
+
 $if(abstract)$
+\begin{center}
+\begin{minipage}{4.5in}
 \begin{abstract}
 $abstract$
 \end{abstract}
+\end{minipage}
+\end{center}
 $endif$
 
-$if(keywords)$
-\paperkeywords{$if(keyword_title)$$keyword_title$$else$Keywords$endif$}{$for(keywords)$$keywords$$sep$$if(keyword_sep)$$keyword_sep$$else$; $endif$$endfor$}
-$endif$
-
-\vspace{0.8em}
+\vspace{0.2em}
 \end{@twocolumnfalse}
 ]
 

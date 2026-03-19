@@ -10,13 +10,16 @@ import argparse
 import csv
 import os
 
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.nn.functional as F
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score, roc_auc_score
 from sklearn.model_selection import train_test_split
+from sklearn.neural_network import MLPClassifier
 from spikingjelly.activation_based import functional
 from torch.utils.data import DataLoader, Subset
 
@@ -65,6 +68,8 @@ NUM_REPEATS = 5
 OUTPUT_ROOT = 'outputs'
 CSV_DIR = os.path.join(OUTPUT_ROOT, 'csv')
 os.makedirs(CSV_DIR, exist_ok=True)
+FIG_DIR = os.path.join(OUTPUT_ROOT, 'figures')
+os.makedirs(FIG_DIR, exist_ok=True)
 
 
 def get_loaders_for_model(model_name, dataset_flag, batch_size, timesteps, encoding, augment, seed=None):
@@ -147,7 +152,8 @@ def train_shadow_model(model_name, seed, dataset_flag, batch_size, epochs, times
 def extract_features(model, model_name, data_loader):
     device = next(model.parameters()).device
     features = []
-    labels = []
+    member_labels = []
+    sensitive_scores = []
 
     model.eval()
     with torch.no_grad():
@@ -163,9 +169,80 @@ def extract_features(model, model_name, data_loader):
 
             batch_features = np.column_stack((max_conf, entropy, margin))
             features.append(batch_features)
-            labels.append(np.ones(len(batch_features)))
+            member_labels.append(np.ones(len(batch_features)))
+            amp = data.abs().mean(dim=(1, 2)).cpu().numpy()
+            sensitive_scores.append(amp)
 
-    return np.vstack(features), np.concatenate(labels)
+    feature_array = np.vstack(features)
+    member_array = np.concatenate(member_labels)
+    sensitive_score = np.concatenate(sensitive_scores)
+    threshold = float(np.median(sensitive_score))
+    sensitive_attr = (sensitive_score >= threshold).astype(np.int64)
+    return feature_array, member_array, sensitive_attr
+
+
+def inversion_attack_baseline(model, model_name, data_loader, max_samples=16, steps=40, lr=0.08, l2_weight=1e-3):
+    device = next(model.parameters()).device
+    model.eval()
+
+    batch_data = None
+    with torch.no_grad():
+        for data, _ in data_loader:
+            batch_data = data.to(device)
+            break
+    if batch_data is None:
+        return 0.0, 1.0, 0.0
+
+    x_true = batch_data[:max_samples]
+    with torch.no_grad():
+        reset_model_state(model_name, model)
+        target_logits = model(x_true)
+        target_probs = F.softmax(target_logits, dim=1)
+
+    x_hat = torch.randn_like(x_true, requires_grad=True)
+    optimizer = optim.Adam([x_hat], lr=lr)
+
+    for _ in range(steps):
+        reset_model_state(model_name, model)
+        logits_hat = model(x_hat)
+        log_probs_hat = F.log_softmax(logits_hat, dim=1)
+        kl = F.kl_div(log_probs_hat, target_probs, reduction='batchmean')
+        l2 = torch.mean(x_hat.pow(2))
+        loss = kl + l2_weight * l2
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+    with torch.no_grad():
+        mse = float(torch.mean((x_hat - x_true).pow(2)).item())
+        denom = float(torch.var(x_true).item() + 1e-8)
+        nrmse = float(mse / denom)
+        risk = float(np.clip(1.0 / (1.0 + nrmse), 0.0, 1.0))
+    return risk, nrmse, mse
+
+
+def plot_privacy_radar(mia_auc, attr_auc, inversion_risk, path):
+    labels = ['MIA', 'Attribute', 'Inversion']
+    mia_risk = float(np.clip(2.0 * (mia_auc - 0.5), 0.0, 1.0))
+    attr_risk = float(np.clip(2.0 * (attr_auc - 0.5), 0.0, 1.0))
+    values = [mia_risk, attr_risk, inversion_risk]
+    values += [values[0]]
+    angles = np.linspace(0, 2 * np.pi, len(labels), endpoint=False).tolist()
+    angles += [angles[0]]
+
+    fig = plt.figure(figsize=(5.2, 5.0))
+    ax = fig.add_subplot(111, polar=True)
+    ax.set_theta_offset(np.pi / 2)
+    ax.set_theta_direction(-1)
+    ax.set_ylim(0.0, 1.0)
+    ax.set_xticks(angles[:-1])
+    ax.set_xticklabels(labels)
+    ax.plot(angles, values, linewidth=2)
+    ax.fill(angles, values, alpha=0.25)
+    ax.set_title('Privacy Risk Radar')
+    fig.tight_layout()
+    fig.savefig(path, dpi=180)
+    plt.close(fig)
 
 
 def run_mia_attack(model_name, dataset_flag, batch_size, epochs, num_shadow_models, timesteps, encoding, augment):
@@ -173,6 +250,9 @@ def run_mia_attack(model_name, dataset_flag, batch_size, epochs, num_shadow_mode
 
     all_features = []
     all_labels = []
+    all_sensitive = []
+    inversion_risks = []
+    inversion_nrmse = []
 
     for shadow_idx in range(num_shadow_models):
         print(f"\n--- 训练第 {shadow_idx + 1} 个影子模型 ---")
@@ -187,15 +267,21 @@ def run_mia_attack(model_name, dataset_flag, batch_size, epochs, num_shadow_mode
             augment=augment,
         )
 
-        member_features, member_labels = extract_features(shadow_model, model_name, member_loader)
-        non_member_features, non_member_labels = extract_features(shadow_model, model_name, non_member_loader)
+        member_features, member_labels, member_sensitive = extract_features(shadow_model, model_name, member_loader)
+        non_member_features, non_member_labels, non_member_sensitive = extract_features(shadow_model, model_name, non_member_loader)
         non_member_labels = np.zeros(len(non_member_labels))
+
+        inv_risk, inv_nrmse, _ = inversion_attack_baseline(shadow_model, model_name, non_member_loader)
+        inversion_risks.append(inv_risk)
+        inversion_nrmse.append(inv_nrmse)
 
         all_features.append(np.vstack((member_features, non_member_features)))
         all_labels.append(np.concatenate((member_labels, non_member_labels)))
+        all_sensitive.append(np.concatenate((member_sensitive, non_member_sensitive)))
 
     X = np.vstack(all_features)
     y = np.concatenate(all_labels)
+    sensitive_y = np.concatenate(all_sensitive)
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
     attack_model = LogisticRegression(max_iter=1000)
@@ -204,12 +290,30 @@ def run_mia_attack(model_name, dataset_flag, batch_size, epochs, num_shadow_mode
     y_pred = attack_model.predict(X_test)
     y_pred_proba = attack_model.predict_proba(X_test)[:, 1]
 
+    # Attribute inference on the same attack feature space.
+    xa_train, xa_test, ya_train, ya_test = train_test_split(X, sensitive_y, test_size=0.3, random_state=42)
+    attr_lr = LogisticRegression(max_iter=1000)
+    attr_lr.fit(xa_train, ya_train)
+    attr_lr_probs = attr_lr.predict_proba(xa_test)[:, 1]
+    attr_lr_auc = roc_auc_score(ya_test, attr_lr_probs)
+
+    attr_mlp = MLPClassifier(hidden_layer_sizes=(32,), max_iter=300, random_state=42)
+    attr_mlp.fit(xa_train, ya_train)
+    attr_mlp_probs = attr_mlp.predict_proba(xa_test)[:, 1]
+    attr_mlp_auc = roc_auc_score(ya_test, attr_mlp_probs)
+    attr_auc = float(max(attr_lr_auc, attr_mlp_auc))
+
     return {
         'accuracy': accuracy_score(y_test, y_pred),
         'auc': roc_auc_score(y_test, y_pred_proba),
         'f1': f1_score(y_test, y_pred),
         'precision': precision_score(y_test, y_pred, zero_division=0),
         'recall': recall_score(y_test, y_pred),
+        'attr_auc': attr_auc,
+        'attr_auc_logreg': float(attr_lr_auc),
+        'attr_auc_mlp': float(attr_mlp_auc),
+        'inversion_risk': float(np.mean(inversion_risks) if inversion_risks else 0.0),
+        'inversion_nrmse': float(np.mean(inversion_nrmse) if inversion_nrmse else 1.0),
     }
 
 
@@ -234,7 +338,7 @@ def summarize_results(all_mia_results, output_prefix, dataset_flag, repeats, num
     detailed_path = os.path.join(CSV_DIR, f'mia_runs_{output_prefix}.csv')
     with open(detailed_path, 'w', newline='') as handle:
         writer = csv.writer(handle)
-        writer.writerow(['dataset', 'model', 'repeat', 'epochs', 'shadow_models', 'encoding', 'augment', 'T', 'accuracy', 'auc', 'f1', 'precision', 'recall'])
+        writer.writerow(['dataset', 'model', 'repeat', 'epochs', 'shadow_models', 'encoding', 'augment', 'T', 'accuracy', 'auc', 'f1', 'precision', 'recall', 'attr_auc', 'inversion_risk'])
         for model, metrics in all_mia_results.items():
             for repeat_idx in range(len(metrics['accuracy'])):
                 writer.writerow([
@@ -251,12 +355,14 @@ def summarize_results(all_mia_results, output_prefix, dataset_flag, repeats, num
                     metrics['f1'][repeat_idx],
                     metrics['precision'][repeat_idx],
                     metrics['recall'][repeat_idx],
+                    metrics['attr_auc'][repeat_idx],
+                    metrics['inversion_risk'][repeat_idx],
                 ])
 
     summary_path = os.path.join(CSV_DIR, f'mia_results_{output_prefix}.csv')
     with open(summary_path, 'w', newline='') as handle:
         writer = csv.writer(handle)
-        writer.writerow(['dataset', 'model', 'epochs', 'repeats', 'shadow_models', 'encoding', 'augment', 'T', 'accuracy', 'auc', 'f1', 'precision', 'recall', 'significance_vs_ann'])
+        writer.writerow(['dataset', 'model', 'epochs', 'repeats', 'shadow_models', 'encoding', 'augment', 'T', 'accuracy', 'auc', 'f1', 'precision', 'recall', 'attr_auc', 'inversion_risk', 'significance_vs_ann'])
         for model in summary_results:
             sig_label = significance.get(model, {}).get('label', '')
             writer.writerow([
@@ -273,8 +379,20 @@ def summarize_results(all_mia_results, output_prefix, dataset_flag, repeats, num
                 f"{summary_results[model]['f1']['mean']:.4f} ± {summary_results[model]['f1']['std']:.4f}",
                 f"{summary_results[model]['precision']['mean']:.4f} ± {summary_results[model]['precision']['std']:.4f}",
                 f"{summary_results[model]['recall']['mean']:.4f} ± {summary_results[model]['recall']['std']:.4f}",
+                f"{summary_results[model]['attr_auc']['mean']:.4f} ± {summary_results[model]['attr_auc']['std']:.4f}",
+                f"{summary_results[model]['inversion_risk']['mean']:.4f} ± {summary_results[model]['inversion_risk']['std']:.4f}",
                 sig_label,
             ])
+
+    # Radar plot per model using summary means.
+    for model in summary_results:
+        radar_path = os.path.join(FIG_DIR, f'privacy_radar_{output_prefix}_{model.lower()}.png')
+        plot_privacy_radar(
+            mia_auc=summary_results[model]['auc']['mean'],
+            attr_auc=summary_results[model]['attr_auc']['mean'],
+            inversion_risk=summary_results[model]['inversion_risk']['mean'],
+            path=radar_path,
+        )
 
     return summary_results, significance, detailed_path, summary_path
 
@@ -284,7 +402,16 @@ def main(args):
     all_mia_results = {}
 
     for model in models:
-        all_mia_results[model] = {'accuracy': [], 'auc': [], 'f1': [], 'precision': [], 'recall': []}
+        all_mia_results[model] = {
+            'accuracy': [],
+            'auc': [],
+            'f1': [],
+            'precision': [],
+            'recall': [],
+            'attr_auc': [],
+            'inversion_risk': [],
+            'inversion_nrmse': [],
+        }
         print(f"\n=== 执行 {args.dataset} / {model} 的 MIA 攻击 ({args.repeats} 次重复) ===")
         for repeat in range(args.repeats):
             print(f"\n--- 第 {repeat + 1} 次重复实验 ---")
@@ -322,7 +449,7 @@ def main(args):
     for model in summary_results:
         sig_label = significance.get(model, {}).get('label', '')
         print(f"\n  {model} {sig_label}:")
-        for metric in ['accuracy', 'auc', 'f1', 'precision', 'recall']:
+        for metric in ['accuracy', 'auc', 'f1', 'precision', 'recall', 'attr_auc', 'inversion_risk']:
             print(f"    {metric}: {summary_results[model][metric]['mean']:.4f} ± {summary_results[model][metric]['std']:.4f}")
 
     if significance:

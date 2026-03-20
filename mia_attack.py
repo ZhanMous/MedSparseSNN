@@ -170,7 +170,8 @@ def extract_features(model, model_name, data_loader):
             batch_features = np.column_stack((max_conf, entropy, margin))
             features.append(batch_features)
             member_labels.append(np.ones(len(batch_features)))
-            amp = data.abs().mean(dim=(1, 2)).cpu().numpy()
+            flat = data.view(data.size(0), -1)
+            amp = flat.abs().mean(dim=1).cpu().numpy()
             sensitive_scores.append(amp)
 
     feature_array = np.vstack(features)
@@ -292,16 +293,21 @@ def run_mia_attack(model_name, dataset_flag, batch_size, epochs, num_shadow_mode
 
     # Attribute inference on the same attack feature space.
     xa_train, xa_test, ya_train, ya_test = train_test_split(X, sensitive_y, test_size=0.3, random_state=42)
-    attr_lr = LogisticRegression(max_iter=1000)
-    attr_lr.fit(xa_train, ya_train)
-    attr_lr_probs = attr_lr.predict_proba(xa_test)[:, 1]
-    attr_lr_auc = roc_auc_score(ya_test, attr_lr_probs)
+    if np.unique(ya_train).size < 2 or np.unique(ya_test).size < 2:
+        attr_lr_auc = 0.5
+        attr_mlp_auc = 0.5
+        attr_auc = 0.5
+    else:
+        attr_lr = LogisticRegression(max_iter=1000)
+        attr_lr.fit(xa_train, ya_train)
+        attr_lr_probs = attr_lr.predict_proba(xa_test)[:, 1]
+        attr_lr_auc = roc_auc_score(ya_test, attr_lr_probs)
 
-    attr_mlp = MLPClassifier(hidden_layer_sizes=(32,), max_iter=300, random_state=42)
-    attr_mlp.fit(xa_train, ya_train)
-    attr_mlp_probs = attr_mlp.predict_proba(xa_test)[:, 1]
-    attr_mlp_auc = roc_auc_score(ya_test, attr_mlp_probs)
-    attr_auc = float(max(attr_lr_auc, attr_mlp_auc))
+        attr_mlp = MLPClassifier(hidden_layer_sizes=(32,), max_iter=300, random_state=42)
+        attr_mlp.fit(xa_train, ya_train)
+        attr_mlp_probs = attr_mlp.predict_proba(xa_test)[:, 1]
+        attr_mlp_auc = roc_auc_score(ya_test, attr_mlp_probs)
+        attr_auc = float(max(attr_lr_auc, attr_mlp_auc))
 
     return {
         'accuracy': accuracy_score(y_test, y_pred),
@@ -425,8 +431,9 @@ def main(args):
                 encoding=args.encoding,
                 augment=not args.no_augment,
             )
-            for metric in metrics:
-                all_mia_results[model][metric].append(metrics[metric])
+            for metric in all_mia_results[model]:
+                if metric in metrics:
+                    all_mia_results[model][metric].append(metrics[metric])
 
     output_prefix = args.output_prefix or args.dataset
     summary_results, significance, detailed_path, summary_path = summarize_results(
